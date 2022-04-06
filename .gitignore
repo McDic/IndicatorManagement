@@ -15,3 +15,7 @@
 # Builds
 dist/
 src/indicator_management.egg-info/
+
+# Testing
+.coverage
+htmlcov/*
