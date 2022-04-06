@@ -191,9 +191,12 @@ class SummationIndicator(AbstractIndicator[T]):
         )
 
     def update_single(self) -> None:
-        self.indicator = sum(
-            self._pre_requisites_values.values(), start=self._default_value
-        )
+        if None in self._pre_requisites_values.values():
+            self.indicator = None
+        else:
+            self.indicator = sum(
+                self._pre_requisites_values.values(), start=self._default_value
+            )
 
 
 class MultiplicationIndicator(AbstractIndicator[T]):
@@ -209,9 +212,12 @@ class MultiplicationIndicator(AbstractIndicator[T]):
         )
 
     def update_single(self) -> None:
-        self.indicator = self._default_value
-        for value in self._pre_requisites_values.values():
-            self.indicator *= value
+        if None in self._pre_requisites_values.values():
+            self.indicator = None
+        else:
+            self.indicator = self._default_value
+            for value in self._pre_requisites_values.values():
+                self.indicator *= value
 
 
 class ArithmeticInverseIndicator(AbstractIndicator[T]):
