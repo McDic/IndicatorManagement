@@ -1,4 +1,4 @@
-from typing import Generator
+from typing import Any, Generator
 
 from .indicators import AbstractIndicator
 
@@ -24,18 +24,14 @@ def all_basises(*indicators: AbstractIndicator) -> set[AbstractIndicator]:
     return result
 
 
-def generate(**indicators: AbstractIndicator) -> Generator[dict, None, None]:
+def generate(**indicators: AbstractIndicator) -> Generator[dict[str, Any], None, None]:
     """
     Generate all indicators by flow.
     """
 
-    basises: set[AbstractIndicator] = set(
-        indicator for indicator in indicators.values() if indicator.is_basis()
-    )
+    basises: set[AbstractIndicator] = all_basises(*indicators.values())
     if not basises:
         raise ValueError("There is no basis indicator")
-    elif basises != all_basises(*indicators.values()):
-        raise ValueError("All basises should be included in keyword arguments")
 
     try:
         while True:
