@@ -8,6 +8,7 @@
 
 # Caches
 **/__pycache__/
+.mypy_cache/
 
 # Credentials
 *.key
@@ -18,4 +19,4 @@ src/indicator_management.egg-info/
 
 # Testing
 .coverage
-htmlcov/*
+htmlcov/
