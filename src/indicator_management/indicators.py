@@ -1,5 +1,6 @@
 from __future__ import annotations
-from typing import Any, Generator, Generic, Iterable, Optional, TypeVar
+from numbers import Number
+from typing import Any, Generator, Generic, Iterable, Iterator, Optional, TypeVar
 
 
 T = TypeVar("T")
@@ -30,6 +31,26 @@ class AbstractIndicator(Generic[T]):
         self._pre_requisite_counter: int = len(pre_requisites)
         for pre_requisite in self._pre_requisites_trigger:
             pre_requisite._post_dependencies.append(self)
+
+    # =================================================================================
+    # Arithmetic operations
+
+    def __add__(self, other) -> SummationIndicator:
+        if isinstance(other, AbstractIndicator):
+            return SummationIndicator(self, other)
+        elif isinstance(other, Number):
+            return SummationIndicator(self, ConstantIndicator(default_value=other))
+        else:
+            raise TypeError
+
+    def __radd__(self, other):
+        return self.__add__(other)
+
+    def __iadd__(self, other):
+        raise NotImplementedError
+
+    def __hash__(self) -> int:
+        return hash(id(self))
 
     # =================================================================================
     # Helper APIs
@@ -78,3 +99,46 @@ class AbstractIndicator(Generic[T]):
         Calculate and update new indicator value based on given `sources`.
         """
         raise NotImplementedError
+
+
+class RawSeriesIndicator(AbstractIndicator[T]):
+    """
+    Represents an indicator which is updated by raw value stream.
+    """
+
+    def __init__(self, *, raw_values: Iterable[T], **kwargs) -> None:
+        super().__init__(pre_requisites=(), **kwargs)
+        self._raw_values: Iterator[T] = iter(raw_values)
+
+    def update_single(self) -> None:
+        self.indicator = next(self._raw_values)
+
+
+class ConstantIndicator(AbstractIndicator[T]):
+    """
+    Represents an constant indicator.
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(pre_requisites=(), **kwargs)
+
+    def update_single(self) -> None:
+        pass
+
+
+class SummationIndicator(AbstractIndicator[T]):
+    """
+    Abstract class of summation of indicators.
+    """
+
+    def __init__(
+        self, *indicators: AbstractIndicator[T], default_value=0, **kwargs
+    ) -> None:
+        super().__init__(
+            pre_requisites=indicators, default_value=default_value, **kwargs
+        )
+
+    def update_single(self) -> None:
+        self.indicator = sum(
+            self._pre_requisites_values.values(), start=self._default_value
+        )

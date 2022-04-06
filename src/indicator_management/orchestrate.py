@@ -1,6 +1,6 @@
 from typing import Generator
 
-from .indicators.abc import AbstractIndicator
+from .indicators import AbstractIndicator
 
 
 def all_basises(*indicators: AbstractIndicator) -> set[AbstractIndicator]:
