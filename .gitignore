@@ -1,2 +1,9 @@
 # Environment settings
 .direnv/
+.envrc
+
+# Credentials
+*.key
+
+# Builds
+dist/
