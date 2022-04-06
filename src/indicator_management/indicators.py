@@ -43,11 +43,57 @@ class AbstractIndicator(Generic[T]):
         else:
             raise TypeError
 
-    def __radd__(self, other):
+    def __radd__(self, other) -> SummationIndicator:
         return self.__add__(other)
 
     def __iadd__(self, other):
         raise NotImplementedError
+
+    def __sub__(self, other) -> SummationIndicator:
+        return self + -other
+
+    def __rsub__(self, other) -> SummationIndicator:
+        return -self + other
+
+    def __isub__(self, other):
+        raise NotImplementedError
+
+    def __mul__(self, other) -> MultiplicationIndicator:
+        if isinstance(other, AbstractIndicator):
+            return MultiplicationIndicator(self, other)
+        elif isinstance(other, Number):
+            return MultiplicationIndicator(self, ConstantIndicator(default_value=other))
+        else:
+            raise TypeError
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
+
+    def __imul__(self, other):
+        raise NotImplementedError
+
+    def __div__(self, other) -> MultiplicationIndicator:
+        if isinstance(other, AbstractIndicator):
+            return self * ArithmeticInverseIndicator(other)
+        elif isinstance(other, (int, float, complex)):
+            return self * (1 / other)
+        else:
+            raise TypeError
+
+    def __rdiv__(self, other) -> MultiplicationIndicator:
+        return other * ArithmeticInverseIndicator(self)
+
+    def __idiv__(self, other):
+        raise NotImplementedError
+
+    def __pos__(self) -> AbstractIndicator:
+        return self
+
+    def __neg__(self) -> MultiplicationIndicator:
+        return self * -1
+
+    # =================================================================================
+    # Extra magic methods
 
     def __hash__(self) -> int:
         return hash(id(self))
@@ -128,7 +174,7 @@ class ConstantIndicator(AbstractIndicator[T]):
 
 class SummationIndicator(AbstractIndicator[T]):
     """
-    Abstract class of summation of indicators.
+    Summation of indicators.
     """
 
     def __init__(
@@ -142,3 +188,36 @@ class SummationIndicator(AbstractIndicator[T]):
         self.indicator = sum(
             self._pre_requisites_values.values(), start=self._default_value
         )
+
+
+class MultiplicationIndicator(AbstractIndicator[T]):
+    """
+    Multiplication of indicators.
+    """
+
+    def __init__(
+        self, *indicators: AbstractIndicator[T], default_value=1, **kwargs
+    ) -> None:
+        super().__init__(
+            pre_requisites=indicators, default_value=default_value, **kwargs
+        )
+
+    def update_single(self) -> None:
+        self.indicator = self._default_value
+        for value in self._pre_requisites_values.values():
+            self.indicator *= value
+
+
+class ArithmeticInverseIndicator(AbstractIndicator[T]):
+    """
+    Arithmetic inverse of indicators.
+    """
+
+    def __init__(self, indicator: AbstractIndicator[T], *args, **kwargs) -> None:
+        super().__init__(
+            *args, pre_requisites=(indicator,), default_value=None, **kwargs
+        )
+
+    def update_single(self) -> None:
+        value = list(self._pre_requisites_values.values())[0]
+        self.indicator = 1 / value
