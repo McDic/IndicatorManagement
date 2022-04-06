@@ -1,5 +1,6 @@
 black
 build
 flake8
+matplotlib
 mypy
 twine
