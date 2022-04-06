@@ -72,7 +72,7 @@ class AbstractIndicator(Generic[T]):
     def __imul__(self, other):
         raise NotImplementedError
 
-    def __div__(self, other) -> MultiplicationIndicator:
+    def __truediv__(self, other) -> MultiplicationIndicator:
         if isinstance(other, AbstractIndicator):
             return self * ArithmeticInverseIndicator(other)
         elif isinstance(other, (int, float, complex)):
@@ -80,10 +80,10 @@ class AbstractIndicator(Generic[T]):
         else:
             raise TypeError
 
-    def __rdiv__(self, other) -> MultiplicationIndicator:
+    def __rtruediv__(self, other) -> MultiplicationIndicator:
         return other * ArithmeticInverseIndicator(self)
 
-    def __idiv__(self, other):
+    def __itruediv__(self, other):
         raise NotImplementedError
 
     def __pos__(self) -> AbstractIndicator:
@@ -91,6 +91,12 @@ class AbstractIndicator(Generic[T]):
 
     def __neg__(self) -> MultiplicationIndicator:
         return self * -1
+
+    # =================================================================================
+    # Other operations which produces indicators
+
+    def __getitem__(self, index):
+        return IndexAccessIndicator(self, index)
 
     # =================================================================================
     # Extra magic methods
@@ -220,4 +226,20 @@ class ArithmeticInverseIndicator(AbstractIndicator[T]):
 
     def update_single(self) -> None:
         value = list(self._pre_requisites_values.values())[0]
-        self.indicator = 1 / value
+        self.indicator = 1 / value if value else None
+
+
+class IndexAccessIndicator(AbstractIndicator[T]):
+    """
+    Index accessing indicators.
+    """
+
+    def __init__(
+        self, indicator: AbstractIndicator, index: Any, *args, **kwargs
+    ) -> None:
+        super().__init__(*args, pre_requisites=(indicator,), **kwargs)
+        self._index = index
+
+    def update_single(self) -> None:
+        value = list(self._pre_requisites_values.values())[0]
+        self.indicator = value[self._index] if value is not None else None
