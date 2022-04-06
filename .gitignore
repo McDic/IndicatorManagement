@@ -6,6 +6,9 @@
 .idea/
 .vscode/
 
+# Caches
+**/__pycache__/
+
 # Credentials
 *.key
 
