@@ -7,3 +7,4 @@
 
 # Builds
 dist/
+src/indicator_management.egg-info/
