@@ -1,2 +1,5 @@
+black
 build
+flake8
+mypy
 twine

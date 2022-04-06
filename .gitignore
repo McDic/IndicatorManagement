@@ -2,6 +2,10 @@
 .direnv/
 .envrc
 
+# IDE settings
+.idea/
+.vscode/
+
 # Credentials
 *.key
 
