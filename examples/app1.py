@@ -3,7 +3,7 @@ import random
 import matplotlib.pyplot as plt
 
 from indicator_management.indicators import RawSeriesIndicator
-from indicator_management.orchestrate import generate
+from indicator_management.orchestration import generate
 
 
 def main():

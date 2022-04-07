@@ -1,7 +1,7 @@
 import unittest
 
 from src.indicator_management.indicators import RawSeriesIndicator, SummationIndicator
-from src.indicator_management.orchestrate import generate
+from src.indicator_management.orchestration import generate
 
 
 class IndicatorTestCase(unittest.TestCase):
