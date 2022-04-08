@@ -1,6 +1,14 @@
 name: Linting with pre-commit
 
-on: ["push", "pull_request"]
+on:
+  push:
+    branches:
+      - "**"
+    tags-ignore:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
 
 jobs:
   pre-commit:
