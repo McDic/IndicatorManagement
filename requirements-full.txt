@@ -4,4 +4,5 @@ coverage
 flake8
 matplotlib
 mypy
+pre-commit
 twine

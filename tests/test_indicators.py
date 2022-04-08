@@ -1,4 +1,4 @@
-from typing import Iterable, Union
+from typing import Iterable
 import unittest
 
 from src.indicator_management.indicators import (

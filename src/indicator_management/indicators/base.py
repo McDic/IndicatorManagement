@@ -36,7 +36,8 @@ def indicatorized_arguments(
 ) -> IndicatorOperationProtocol[IAR]:
     """
     Convert a function which accepts indicators or numbers.
-    In resulting function, all number arguments will be changed into `ConstantIndicator`.
+    In resulting function, all number arguments
+    will be changed into `ConstantIndicator`.
     """
 
     def inner_function(*indicator_or_numbers: Union[AbstractIndicator, Numeric]) -> IAR:
