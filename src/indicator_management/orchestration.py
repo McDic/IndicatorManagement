@@ -38,7 +38,7 @@ def generate(**indicators: AbstractIndicator) -> Generator[dict[str, Any], None,
             for basis in bases:
                 basis.update()
             yield {
-                indicator_name: indicator.indicator
+                indicator_name: indicator.value
                 for indicator_name, indicator in indicators.items()
             }
     except StopIteration:

@@ -1,10 +1,10 @@
 from __future__ import annotations
+from collections import deque
 from numbers import Number
 from typing import (
-    Any,
     Callable,
-    Generator,
     Generic,
+    Hashable,
     Iterable,
     Iterator,
     Optional,
@@ -57,11 +57,25 @@ class AbstractIndicator(Generic[T]):
     Abstract class of all indicators.
     """
 
+    global_nonce: int = 0
+
     def __init__(
-        self, *pre_requisites: AbstractIndicator, default_value: Optional[T]
+        self,
+        *pre_requisites: AbstractIndicator,
+        default_value: Optional[T] = None,
+        history_length: int = 1,
     ) -> None:
+        self.id = AbstractIndicator.global_nonce
+        AbstractIndicator.global_nonce += 1
+
         self._default_value = default_value
-        self.indicator: Optional[T] = default_value
+        self.indicator_history: deque[Optional[T]] = deque(
+            [
+                *(None for _ in range(history_length - 1)),
+                default_value,
+            ],  # https://github.com/python/mypy/issues/5492
+            maxlen=history_length,
+        )
         self._post_dependencies: list[AbstractIndicator] = []
 
         self.pre_requisites: tuple[AbstractIndicator, ...] = pre_requisites
@@ -72,6 +86,41 @@ class AbstractIndicator(Generic[T]):
         self._pre_requisite_counter: int = len(self.pre_requisites)
         for pre_requisite in self._pre_requisites_trigger:
             pre_requisite._post_dependencies.append(self)
+
+    # =================================================================================
+    # Indicator / History related
+
+    def _get_value(self) -> Optional[T]:
+        """
+        Return the current value of this indicator.
+        """
+        return self(0)
+
+    def _set_value(self, v: Optional[T]):
+        """
+        Set the new value of this indicator.
+        """
+        self.indicator_history.append(v)
+
+    value = property(
+        fget=(lambda self: self._get_value()),
+        fset=(lambda self, v: self._set_value(v)),
+    )
+
+    def resize_history(self, history_length: int, increase_only: bool = True):
+        """
+        Resize indicator history by given `history_length`.
+        If `increase_only` is True, then the resulting length will only be increased.
+        """
+        self.indicator_history = deque(
+            self.indicator_history,
+            maxlen=history_length
+            if not increase_only
+            else max(len(self.indicator_history), history_length),
+        )
+
+    def __call__(self, index: int) -> Optional[T]:
+        return self.indicator_history[-1 - index]
 
     # =================================================================================
     # Arithmetic operations
@@ -106,20 +155,24 @@ class AbstractIndicator(Generic[T]):
     def __rtruediv__(self, other) -> DivisionIndicator:
         return DivisionIndicator(other, self)
 
-    @indicatorized_arguments
-    def __itruediv__(self, other):
-        raise NotImplementedError
-
     def __pos__(self) -> AbstractIndicator:
         return self
 
     def __neg__(self) -> MultiplicationIndicator:
         return self * -1
 
+    @indicatorized_arguments
+    def __pow__(self, other) -> PowerIndicator:
+        return PowerIndicator(self, other)
+
+    @indicatorized_arguments
+    def __rpow__(self, other) -> PowerIndicator:
+        return PowerIndicator(other, self)
+
     # =================================================================================
     # Other operations which produces indicators
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> IndexAccessIndicator:
         return IndexAccessIndicator(self, index)
 
     # =================================================================================
@@ -128,14 +181,17 @@ class AbstractIndicator(Generic[T]):
     def __hash__(self) -> int:
         return hash(id(self))
 
+    def __repr__(self):
+        return "<Indicator id %d :: Type %s :: History %s :: %d dependencies(%s)>" % (
+            self.id,
+            str(type(self)).split(".")[-1],
+            self.indicator_history,
+            len(self.pre_requisites),
+            ", ".join(str(indicator.id) for indicator in self.pre_requisites),
+        )
+
     # =================================================================================
     # Helper APIs
-
-    def generate_pre_requisite_values(self) -> Generator[Optional[Any], None, None]:
-        """
-        Generate pre-requisite indicators' values.
-        """
-        yield from (indicator.indicator for indicator in self.pre_requisites)
 
     def is_basis(self) -> bool:
         """
@@ -185,18 +241,18 @@ class AbstractIndicator(Generic[T]):
 AI = TypeVar("AI", bound=AbstractIndicator)
 
 
-def none_if_none_in_pre_requisites(
+def default_if_none_in_pre_requisites(
     method: Callable[[AI], None]
 ) -> Callable[[AI], None]:
     """
     Decorate this to `Indicator.update_single` if
-    you want to force `self.indicator = None` when
+    you want to force `self.value = None` when
     any pre-requisite indicator have `None` value.
     """
 
     def inner_method(self: AI) -> None:
-        if None in self.generate_pre_requisite_values():
-            self.indicator = None
+        if any((indicator.value is None) for indicator in self.pre_requisites):
+            self.value = self._default_value
         else:
             method(self)
 
@@ -213,7 +269,7 @@ class RawSeriesIndicator(AbstractIndicator[T]):
         self._raw_values: Iterator[T] = iter(raw_values)
 
     def update_single(self) -> None:
-        self.indicator = next(self._raw_values)
+        self.value = next(self._raw_values)
 
 
 class ConstantIndicator(AbstractIndicator[T]):
@@ -238,10 +294,11 @@ class SummationIndicator(AbstractIndicator[T]):
     ) -> None:
         super().__init__(*indicators, default_value=default_value, **kwargs)
 
-    @none_if_none_in_pre_requisites
+    @default_if_none_in_pre_requisites
     def update_single(self) -> None:
-        self.indicator = sum(
-            self.generate_pre_requisite_values(), start=self._default_value
+        self.value = sum(
+            (indicator.value for indicator in self.pre_requisites),
+            start=self._default_value,
         )
 
 
@@ -255,11 +312,11 @@ class MultiplicationIndicator(AbstractIndicator[T]):
     ) -> None:
         super().__init__(*indicators, default_value=default_value, **kwargs)
 
-    @none_if_none_in_pre_requisites
+    @default_if_none_in_pre_requisites
     def update_single(self) -> None:
-        self.indicator = self._default_value
-        for value in self.generate_pre_requisite_values():
-            self.indicator *= value  # type: ignore
+        self.value = self._default_value
+        for indicator in self.pre_requisites:
+            self.value *= indicator.value
 
 
 class SubtractionIndicator(AbstractIndicator[T]):
@@ -268,34 +325,68 @@ class SubtractionIndicator(AbstractIndicator[T]):
     """
 
     def __init__(
-        self, indicator1: AbstractIndicator, indicator2: AbstractIndicator
+        self,
+        indicator1: AbstractIndicator,
+        indicator2: AbstractIndicator,
+        *,
+        default_value: Optional[T] = None,
     ) -> None:
-        super().__init__(indicator1, indicator2, default_value=None)
+        super().__init__(indicator1, indicator2, default_value=default_value)
 
-    @none_if_none_in_pre_requisites
+    @default_if_none_in_pre_requisites
     def update_single(self) -> None:
-        gen = self.generate_pre_requisite_values()
-        value1 = next(gen)
-        value2 = next(gen)
-        self.indicator = value1 - value2  # type: ignore
+        value1, value2 = (
+            self.pre_requisites[0].value,
+            self.pre_requisites[1].value,
+        )
+        self.value = value1 - value2
 
 
 class DivisionIndicator(AbstractIndicator[T]):
     """
     Arithmetic division of two indicators.
+    Note that division by zero will make this indicator value to default value.
     """
 
     def __init__(
-        self, indicator1: AbstractIndicator, indicator2: AbstractIndicator
+        self,
+        indicator1: AbstractIndicator,
+        indicator2: AbstractIndicator,
+        *,
+        default_value: Optional[T] = None,
     ) -> None:
-        super().__init__(indicator1, indicator2, default_value=None)
+        super().__init__(indicator1, indicator2, default_value=default_value)
 
-    @none_if_none_in_pre_requisites
+    @default_if_none_in_pre_requisites
     def update_single(self) -> None:
-        gen = self.generate_pre_requisite_values()
-        value1 = next(gen)
-        value2 = next(gen)
-        self.indicator = None if not value2 else value1 / value2
+        value1, value2 = (
+            self.pre_requisites[0].value,
+            self.pre_requisites[1].value,
+        )
+        self.value = self._default_value if not value2 else value1 / value2
+
+
+class PowerIndicator(AbstractIndicator[T]):
+    """
+    Power operation of two indicators.
+    """
+
+    def __init__(
+        self,
+        indicator1: AbstractIndicator,
+        indicator2: AbstractIndicator,
+        *,
+        default_value: Optional[T] = None,
+    ) -> None:
+        super().__init__(indicator1, indicator2, default_value=default_value)
+
+    @default_if_none_in_pre_requisites
+    def update_single(self) -> None:
+        value1, value2 = (
+            self.pre_requisites[0].value,
+            self.pre_requisites[1].value,
+        )
+        self.value = value1**value2
 
 
 class IndexAccessIndicator(AbstractIndicator[T]):
@@ -304,12 +395,17 @@ class IndexAccessIndicator(AbstractIndicator[T]):
     """
 
     def __init__(
-        self, indicator: AbstractIndicator, index: Any, *args, **kwargs
+        self,
+        indicator: AbstractIndicator,
+        index: Hashable,
+        *,
+        default_value: Optional[T] = None,
+        **kwargs,
     ) -> None:
-        super().__init__(indicator, **kwargs)
+        super().__init__(indicator, default_value=default_value, **kwargs)
         self._index = index
 
-    @none_if_none_in_pre_requisites
+    @default_if_none_in_pre_requisites
     def update_single(self) -> None:
-        value = next(self.generate_pre_requisite_values())
-        self.indicator = value[self._index]  # type: ignore
+        value = self.pre_requisites[0].value
+        self.value = value[self._index]
