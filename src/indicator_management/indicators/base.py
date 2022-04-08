@@ -2,6 +2,7 @@ from __future__ import annotations
 from collections import deque
 from numbers import Number
 from typing import (
+    Any,
     Callable,
     Generic,
     Hashable,
@@ -70,12 +71,10 @@ class AbstractIndicator(Generic[T]):
 
         self._default_value = default_value
         self.indicator_history: deque[Optional[T]] = deque(
-            [
-                *(None for _ in range(history_length - 1)),
-                default_value,
-            ],  # https://github.com/python/mypy/issues/5492
+            (None for _ in range(history_length - 1)),
             maxlen=history_length,
         )
+        self.indicator_history.append(self._default_value)
         self._post_dependencies: list[AbstractIndicator] = []
 
         self.pre_requisites: tuple[AbstractIndicator, ...] = pre_requisites
@@ -112,12 +111,14 @@ class AbstractIndicator(Generic[T]):
         Resize indicator history by given `history_length`.
         If `increase_only` is True, then the resulting length will only be increased.
         """
-        self.indicator_history = deque(
-            self.indicator_history,
-            maxlen=history_length
-            if not increase_only
-            else max(len(self.indicator_history), history_length),
-        )
+        if not increase_only or history_length > len(self.indicator_history):
+            self.indicator_history = deque(
+                self.indicator_history,
+                maxlen=history_length,
+            )
+            self.indicator_history.extendleft(
+                (None for _ in range(history_length - len(self.indicator_history)))
+            )
 
     def __call__(self, index: int) -> Optional[T]:
         return self.indicator_history[-1 - index]
@@ -409,3 +410,52 @@ class IndexAccessIndicator(AbstractIndicator[T]):
     def update_single(self) -> None:
         value = self.pre_requisites[0].value
         self.value = value[self._index]
+
+
+class AbstractHistoryTrackingIndicator(AbstractIndicator[T]):
+    """
+    Abstract base of all history-tracking indicators.
+    This indicator also tracks number of `None`s in tracking history.
+    """
+
+    def __init__(
+        self,
+        indicator: AbstractIndicator,
+        length: int,
+        *,
+        default_value: Optional[T] = None,
+    ) -> None:
+        super().__init__(indicator, default_value=default_value)
+        self._tracking_length: int = length
+        indicator.resize_history(self._tracking_length, increase_only=True)
+        self._removed_value: Optional[Any] = indicator(self._tracking_length - 1)
+        self._none_count: int = sum(
+            1 for i in range(self._tracking_length) if indicator(i) is None
+        )
+
+    def update_single(self) -> None:
+        self.update_single_before_history_shift()
+        if self._removed_value is None:
+            self._none_count -= 1
+        self._removed_value = self.pre_requisites[0](self._tracking_length - 1)
+        if self.pre_requisites[0].value is None:
+            self._none_count += 1
+        self.update_single_after_history_shift()
+
+    def update_single_before_history_shift(self) -> None:
+        """
+        The first phase of `self.update_single`, which exists for update
+        before `self._removed_value` is changed. You should focus on
+        some destructive action on removing `self._removed_value` for
+        this indicator's value state.
+        """
+        raise NotImplementedError
+
+    def update_single_after_history_shift(self) -> None:
+        """
+        The last phase of `self.update_single`, which exists for update
+        after `self._removed_value` is changed. You should focus on
+        some constructive action on adding `self.pre_requisites[0](0)`
+        for this indicator's value state.
+        """
+        raise NotImplementedError
