@@ -16,21 +16,29 @@ from typing import (
 
 
 T = TypeVar("T")
-N = Union[Number, SupportsFloat]
+Numeric = Union[Number, SupportsFloat]
+IOPR_co = TypeVar("IOPR_co", covariant=True)
 
 
-class IndicatorOperationProtocol(Protocol):
-    def __call__(self, *indicator_or_numbers: Union[AbstractIndicator, N]) -> Any:
+class IndicatorOperationProtocol(Protocol[IOPR_co]):
+    def __call__(
+        self, *indicator_or_numbers: Union[AbstractIndicator, Numeric]
+    ) -> IOPR_co:
         raise NotImplementedError
 
 
-def indicatorized_arguments(func: Callable) -> IndicatorOperationProtocol:
+IAR = TypeVar("IAR")
+
+
+def indicatorized_arguments(
+    func: Callable[..., IAR]
+) -> IndicatorOperationProtocol[IAR]:
     """
     Convert a function which accepts indicators or numbers.
     In resulting function, all number arguments will be changed into `ConstantIndicator`.
     """
 
-    def inner_function(*indicator_or_numbers: Union[AbstractIndicator, N]) -> Any:
+    def inner_function(*indicator_or_numbers: Union[AbstractIndicator, Numeric]) -> IAR:
         result = []
         for obj in indicator_or_numbers:
             if isinstance(obj, AbstractIndicator):
@@ -174,6 +182,27 @@ class AbstractIndicator(Generic[T]):
         raise NotImplementedError
 
 
+AI = TypeVar("AI", bound=AbstractIndicator)
+
+
+def none_if_none_in_pre_requisites(
+    method: Callable[[AI], None]
+) -> Callable[[AI], None]:
+    """
+    Decorate this to `Indicator.update_single` if
+    you want to force `self.indicator = None` when
+    any pre-requisite indicator have `None` value.
+    """
+
+    def inner_method(self: AI) -> None:
+        if None in self.generate_pre_requisite_values():
+            self.indicator = None
+        else:
+            method(self)
+
+    return inner_method
+
+
 class RawSeriesIndicator(AbstractIndicator[T]):
     """
     Represents an indicator which is updated by raw value stream.
@@ -209,13 +238,11 @@ class SummationIndicator(AbstractIndicator[T]):
     ) -> None:
         super().__init__(*indicators, default_value=default_value, **kwargs)
 
+    @none_if_none_in_pre_requisites
     def update_single(self) -> None:
-        if None in self.generate_pre_requisite_values():
-            self.indicator = None
-        else:
-            self.indicator = sum(
-                self.generate_pre_requisite_values(), start=self._default_value
-            )
+        self.indicator = sum(
+            self.generate_pre_requisite_values(), start=self._default_value
+        )
 
 
 class MultiplicationIndicator(AbstractIndicator[T]):
@@ -228,13 +255,11 @@ class MultiplicationIndicator(AbstractIndicator[T]):
     ) -> None:
         super().__init__(*indicators, default_value=default_value, **kwargs)
 
+    @none_if_none_in_pre_requisites
     def update_single(self) -> None:
-        if None in self.generate_pre_requisite_values():
-            self.indicator = None
-        else:
-            self.indicator = self._default_value
-            for value in self.generate_pre_requisite_values():
-                self.indicator *= value  # type: ignore
+        self.indicator = self._default_value
+        for value in self.generate_pre_requisite_values():
+            self.indicator *= value  # type: ignore
 
 
 class SubtractionIndicator(AbstractIndicator[T]):
@@ -247,14 +272,12 @@ class SubtractionIndicator(AbstractIndicator[T]):
     ) -> None:
         super().__init__(indicator1, indicator2, default_value=None)
 
+    @none_if_none_in_pre_requisites
     def update_single(self) -> None:
         gen = self.generate_pre_requisite_values()
         value1 = next(gen)
         value2 = next(gen)
-        if value1 is None or value2 is None:
-            self.indicator = None
-        else:
-            self.indicator = value1 - value2
+        self.indicator = value1 - value2  # type: ignore
 
 
 class DivisionIndicator(AbstractIndicator[T]):
@@ -267,14 +290,12 @@ class DivisionIndicator(AbstractIndicator[T]):
     ) -> None:
         super().__init__(indicator1, indicator2, default_value=None)
 
+    @none_if_none_in_pre_requisites
     def update_single(self) -> None:
         gen = self.generate_pre_requisite_values()
         value1 = next(gen)
         value2 = next(gen)
-        if value1 is None or value2 is None:
-            self.indicator = None
-        else:
-            self.indicator = None if not value2 else value1 / value2
+        self.indicator = None if not value2 else value1 / value2
 
 
 class IndexAccessIndicator(AbstractIndicator[T]):
@@ -288,6 +309,7 @@ class IndexAccessIndicator(AbstractIndicator[T]):
         super().__init__(indicator, **kwargs)
         self._index = index
 
+    @none_if_none_in_pre_requisites
     def update_single(self) -> None:
         value = next(self.generate_pre_requisite_values())
-        self.indicator = value[self._index] if value is not None else None
+        self.indicator = value[self._index]  # type: ignore
