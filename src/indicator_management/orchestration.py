@@ -14,7 +14,7 @@ def all_bases(*indicators: AbstractIndicator) -> set[AbstractIndicator]:
         if indicator in visited_indicators:
             return
         visited_indicators.add(indicator)
-        for pre_requisite in indicator.get_pre_requisites():
+        for pre_requisite in indicator.pre_requisites:
             dfs(pre_requisite)
         if indicator.is_basis():
             result.add(indicator)

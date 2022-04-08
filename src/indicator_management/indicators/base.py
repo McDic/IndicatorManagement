@@ -1,9 +1,47 @@
 from __future__ import annotations
 from numbers import Number
-from typing import Any, Generator, Generic, Iterable, Iterator, Optional, TypeVar
+from typing import (
+    Any,
+    Callable,
+    Generator,
+    Generic,
+    Iterable,
+    Iterator,
+    Optional,
+    Protocol,
+    SupportsFloat,
+    TypeVar,
+    Union,
+)
 
 
 T = TypeVar("T")
+N = Union[Number, SupportsFloat]
+
+
+class IndicatorOperationProtocol(Protocol):
+    def __call__(self, *indicator_or_numbers: Union[AbstractIndicator, N]) -> Any:
+        raise NotImplementedError
+
+
+def indicatorized_arguments(func: Callable) -> IndicatorOperationProtocol:
+    """
+    Convert a function which accepts indicators or numbers.
+    In resulting function, all number arguments will be changed into `ConstantIndicator`.
+    """
+
+    def inner_function(*indicator_or_numbers: Union[AbstractIndicator, N]) -> Any:
+        result = []
+        for obj in indicator_or_numbers:
+            if isinstance(obj, AbstractIndicator):
+                result.append(obj)
+            elif isinstance(obj, Number):
+                result.append(ConstantIndicator(obj))
+            else:
+                raise TypeError
+        return func(*result)
+
+    return inner_function
 
 
 class AbstractIndicator(Generic[T]):
@@ -12,77 +50,55 @@ class AbstractIndicator(Generic[T]):
     """
 
     def __init__(
-        self,
-        *,
-        default_value: Optional[T] = None,
-        pre_requisites: Iterable[AbstractIndicator] = (),
+        self, *pre_requisites: AbstractIndicator, default_value: Optional[T]
     ) -> None:
         self._default_value = default_value
         self.indicator: Optional[T] = default_value
         self._post_dependencies: list[AbstractIndicator] = []
 
-        pre_requisites = list(pre_requisites)
+        self.pre_requisites: tuple[AbstractIndicator, ...] = pre_requisites
+        assert len(self.pre_requisites) == len(set(self.pre_requisites))
         self._pre_requisites_trigger: dict[AbstractIndicator, bool] = {
-            pre_requisite: False for pre_requisite in pre_requisites
+            pre_requisite: False for pre_requisite in self.pre_requisites
         }
-        self._pre_requisites_values: dict[AbstractIndicator, Any] = {
-            pre_requisite: pre_requisite.indicator for pre_requisite in pre_requisites
-        }
-        self._pre_requisite_counter: int = len(pre_requisites)
+        self._pre_requisite_counter: int = len(self.pre_requisites)
         for pre_requisite in self._pre_requisites_trigger:
             pre_requisite._post_dependencies.append(self)
 
     # =================================================================================
     # Arithmetic operations
 
+    @indicatorized_arguments
     def __add__(self, other) -> SummationIndicator:
-        if isinstance(other, AbstractIndicator):
-            return SummationIndicator(self, other)
-        elif isinstance(other, Number):
-            return SummationIndicator(self, ConstantIndicator(default_value=other))
-        else:
-            raise TypeError
+        return SummationIndicator(self, other)
 
     def __radd__(self, other) -> SummationIndicator:
         return self.__add__(other)
 
-    def __iadd__(self, other):
-        raise NotImplementedError
+    @indicatorized_arguments
+    def __sub__(self, other) -> SubtractionIndicator:
+        return SubtractionIndicator(self, other)
 
-    def __sub__(self, other) -> SummationIndicator:
-        return self + -other
+    @indicatorized_arguments
+    def __rsub__(self, other) -> SubtractionIndicator:
+        return SubtractionIndicator(other, self)
 
-    def __rsub__(self, other) -> SummationIndicator:
-        return -self + other
-
-    def __isub__(self, other):
-        raise NotImplementedError
-
+    @indicatorized_arguments
     def __mul__(self, other) -> MultiplicationIndicator:
-        if isinstance(other, AbstractIndicator):
-            return MultiplicationIndicator(self, other)
-        elif isinstance(other, Number):
-            return MultiplicationIndicator(self, ConstantIndicator(default_value=other))
-        else:
-            raise TypeError
+        return MultiplicationIndicator(self, other)
 
     def __rmul__(self, other):
         return self.__mul__(other)
 
-    def __imul__(self, other):
-        raise NotImplementedError
+    @indicatorized_arguments
+    def __truediv__(self, other) -> DivisionIndicator:
+        return DivisionIndicator(self, other)
 
-    def __truediv__(self, other) -> MultiplicationIndicator:
-        if isinstance(other, AbstractIndicator):
-            return self * ArithmeticInverseIndicator(other)
-        elif isinstance(other, (int, float, complex)):
-            return self * (1 / other)
-        else:
-            raise TypeError
+    @indicatorized_arguments
+    def __rtruediv__(self, other) -> DivisionIndicator:
+        return DivisionIndicator(other, self)
 
-    def __rtruediv__(self, other) -> MultiplicationIndicator:
-        return other * ArithmeticInverseIndicator(self)
-
+    @indicatorized_arguments
     def __itruediv__(self, other):
         raise NotImplementedError
 
@@ -107,14 +123,17 @@ class AbstractIndicator(Generic[T]):
     # =================================================================================
     # Helper APIs
 
-    def get_pre_requisites(self) -> Generator[AbstractIndicator, None, None]:
-        yield from self._pre_requisites_trigger.keys()
+    def generate_pre_requisite_values(self) -> Generator[Optional[Any], None, None]:
+        """
+        Generate pre-requisite indicators' values.
+        """
+        yield from (indicator.indicator for indicator in self.pre_requisites)
 
     def is_basis(self) -> bool:
         """
         Check if this indicator does not require any pre-requisites.
         """
-        return not bool(self._pre_requisites_trigger)
+        return not bool(self.pre_requisites)
 
     # =================================================================================
     # Update APIs
@@ -124,9 +143,11 @@ class AbstractIndicator(Generic[T]):
         Receive trigger from pre-requisite of this indicator.
         If condition is satisfied, update current indicator.
         If you give any indicator which is not pre-requisite
-        of this indicator, it will raise an `KeyError`.
+        of this indicator, it will raise an `ValueError`.
         """
-        self._pre_requisites_values[pre_requisite] = pre_requisite.indicator
+        if pre_requisite not in self._pre_requisites_trigger:
+            raise ValueError("Given pre-requisite is not available in this indicator")
+
         if not self._pre_requisites_trigger[pre_requisite]:
             self._pre_requisites_trigger[pre_requisite] = True
             self._pre_requisite_counter -= 1
@@ -159,7 +180,7 @@ class RawSeriesIndicator(AbstractIndicator[T]):
     """
 
     def __init__(self, *, raw_values: Iterable[T], **kwargs) -> None:
-        super().__init__(pre_requisites=(), **kwargs)
+        super().__init__(default_value=None, **kwargs)
         self._raw_values: Iterator[T] = iter(raw_values)
 
     def update_single(self) -> None:
@@ -171,8 +192,8 @@ class ConstantIndicator(AbstractIndicator[T]):
     Represents an constant indicator.
     """
 
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(pre_requisites=(), **kwargs)
+    def __init__(self, constant: T) -> None:
+        super().__init__(default_value=constant)
 
     def update_single(self) -> None:
         pass
@@ -186,16 +207,14 @@ class SummationIndicator(AbstractIndicator[T]):
     def __init__(
         self, *indicators: AbstractIndicator[T], default_value=0, **kwargs
     ) -> None:
-        super().__init__(
-            pre_requisites=indicators, default_value=default_value, **kwargs
-        )
+        super().__init__(*indicators, default_value=default_value, **kwargs)
 
     def update_single(self) -> None:
-        if None in self._pre_requisites_values.values():
+        if None in self.generate_pre_requisite_values():
             self.indicator = None
         else:
             self.indicator = sum(
-                self._pre_requisites_values.values(), start=self._default_value
+                self.generate_pre_requisite_values(), start=self._default_value
             )
 
 
@@ -207,32 +226,55 @@ class MultiplicationIndicator(AbstractIndicator[T]):
     def __init__(
         self, *indicators: AbstractIndicator[T], default_value=1, **kwargs
     ) -> None:
-        super().__init__(
-            pre_requisites=indicators, default_value=default_value, **kwargs
-        )
+        super().__init__(*indicators, default_value=default_value, **kwargs)
 
     def update_single(self) -> None:
-        if None in self._pre_requisites_values.values():
+        if None in self.generate_pre_requisite_values():
             self.indicator = None
         else:
             self.indicator = self._default_value
-            for value in self._pre_requisites_values.values():
-                self.indicator *= value
+            for value in self.generate_pre_requisite_values():
+                self.indicator *= value  # type: ignore
 
 
-class ArithmeticInverseIndicator(AbstractIndicator[T]):
+class SubtractionIndicator(AbstractIndicator[T]):
     """
-    Arithmetic inverse of indicators.
+    Arithmetic subtraction of two indicators.
     """
 
-    def __init__(self, indicator: AbstractIndicator[T], *args, **kwargs) -> None:
-        super().__init__(
-            *args, pre_requisites=(indicator,), default_value=None, **kwargs
-        )
+    def __init__(
+        self, indicator1: AbstractIndicator, indicator2: AbstractIndicator
+    ) -> None:
+        super().__init__(indicator1, indicator2, default_value=None)
 
     def update_single(self) -> None:
-        value = list(self._pre_requisites_values.values())[0]
-        self.indicator = 1 / value if value else None
+        gen = self.generate_pre_requisite_values()
+        value1 = next(gen)
+        value2 = next(gen)
+        if value1 is None or value2 is None:
+            self.indicator = None
+        else:
+            self.indicator = value1 - value2
+
+
+class DivisionIndicator(AbstractIndicator[T]):
+    """
+    Arithmetic division of two indicators.
+    """
+
+    def __init__(
+        self, indicator1: AbstractIndicator, indicator2: AbstractIndicator
+    ) -> None:
+        super().__init__(indicator1, indicator2, default_value=None)
+
+    def update_single(self) -> None:
+        gen = self.generate_pre_requisite_values()
+        value1 = next(gen)
+        value2 = next(gen)
+        if value1 is None or value2 is None:
+            self.indicator = None
+        else:
+            self.indicator = None if not value2 else value1 / value2
 
 
 class IndexAccessIndicator(AbstractIndicator[T]):
@@ -243,9 +285,9 @@ class IndexAccessIndicator(AbstractIndicator[T]):
     def __init__(
         self, indicator: AbstractIndicator, index: Any, *args, **kwargs
     ) -> None:
-        super().__init__(*args, pre_requisites=(indicator,), **kwargs)
+        super().__init__(indicator, **kwargs)
         self._index = index
 
     def update_single(self) -> None:
-        value = list(self._pre_requisites_values.values())[0]
+        value = next(self.generate_pre_requisite_values())
         self.indicator = value[self._index] if value is not None else None

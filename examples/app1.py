@@ -9,6 +9,7 @@ from indicator_management.orchestration import generate
 def main():
 
     i1 = RawSeriesIndicator(raw_values=(random.randint(1, 10) for _ in range(10)))
+    i1 *= 2
     i2 = i1 * 2 + 1
 
     y_total = list(generate(y1=i1, y2=i2))
