@@ -1,6 +1,7 @@
 from .base import (
     AbstractHistoryTrackingIndicator,
     AbstractIndicator,
+    AsyncRawSeriesIndicator,
     ConstantIndicator,
     DivisionIndicator,
     IndexAccessIndicator,

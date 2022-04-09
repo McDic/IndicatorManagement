@@ -4,6 +4,8 @@ from collections import deque
 from numbers import Number
 from typing import (
     Any,
+    AsyncGenerator,
+    AsyncIterable,
     Callable,
     Generic,
     Hashable,
@@ -201,37 +203,20 @@ class AbstractIndicator(Generic[T]):
         """
         return not bool(self.pre_requisites)
 
+    def get_post_dependencies(self) -> set[AbstractIndicator]:
+        """
+        Get set of post dependencies.
+        """
+        return set(self._post_dependencies)
+
     # =================================================================================
     # Update APIs
 
-    def trigger_from_pre_requisite(self, pre_requisite: AbstractIndicator) -> None:
+    async def update_single_async(self) -> None:
         """
-        Receive trigger from pre-requisite of this indicator.
-        If condition is satisfied, update current indicator.
-        If you give any indicator which is not pre-requisite
-        of this indicator, it will raise an `ValueError`.
-        """
-        if pre_requisite not in self._pre_requisites_trigger:
-            raise ValueError("Given pre-requisite is not available in this indicator")
-
-        if not self._pre_requisites_trigger[pre_requisite]:
-            self._pre_requisites_trigger[pre_requisite] = True
-            self._pre_requisite_counter -= 1
-
-        if self._pre_requisite_counter == 0:
-            self._pre_requisite_counter = len(self._pre_requisites_trigger)
-            self._pre_requisites_trigger = {
-                pr: False for pr in self._pre_requisites_trigger
-            }
-            self.update()
-
-    def update(self) -> None:
-        """
-        Update current indicator and all dependent indicators.
+        Asynchronously update current indicator.
         """
         self.update_single()
-        for dependent_indicator in self._post_dependencies:
-            dependent_indicator.trigger_from_pre_requisite(self)
 
     def update_single(self) -> None:
         """
@@ -263,15 +248,43 @@ def default_if_none_in_pre_requisites(
 
 class RawSeriesIndicator(AbstractIndicator[T]):
     """
-    Represents an indicator which is updated by raw value stream.
+    Represents an indicator which is updated by
+    synchronous raw value stream.
     """
 
-    def __init__(self, *, raw_values: Iterable[T], **kwargs) -> None:
+    def __init__(self, *, raw_values: Iterable[Optional[T]], **kwargs) -> None:
         super().__init__(default_value=None, **kwargs)
-        self._raw_values: Iterator[T] = iter(raw_values)
+        self._raw_values: Iterator[Optional[T]] = iter(raw_values)
+
+    async def update_single_async(self) -> None:
+        try:
+            self.update_single()
+        except StopIteration as exc:
+            raise StopAsyncIteration(*exc.args).with_traceback(exc.__traceback__)
 
     def update_single(self) -> None:
         self.value = next(self._raw_values)
+
+
+class AsyncRawSeriesIndicator(AbstractIndicator[T]):
+    """
+    Represents an indicator which is updated by
+    asynchronous raw value stream.
+    """
+
+    def __init__(
+        self,
+        *,
+        raw_values: AsyncIterable[Optional[T]],
+        **kwargs,
+    ) -> None:
+        super().__init__(default_value=None, **kwargs)
+        self._raw_values: AsyncGenerator[Optional[T], None] = (
+            value async for value in raw_values
+        )
+
+    async def update_single_async(self) -> None:
+        self.value = await self._raw_values.__anext__()
 
 
 class ConstantIndicator(AbstractIndicator[T]):

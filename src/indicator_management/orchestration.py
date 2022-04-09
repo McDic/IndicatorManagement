@@ -1,45 +1,57 @@
-from typing import Any, Generator
+import asyncio
+from typing import Any, AsyncGenerator, Generator
 
+from .graph import toposort
 from .indicators import AbstractIndicator
 
 
-def all_bases(*indicators: AbstractIndicator) -> set[AbstractIndicator]:
+def generate_sync(
+    **indicators: AbstractIndicator,
+) -> Generator[dict[str, Any], None, None]:
     """
-    Return set of all bases required by given indicators.
+    Synchronously generate all indicators by flow.
     """
-    visited_indicators: set[AbstractIndicator] = set()
-    result: set[AbstractIndicator] = set()
-
-    def dfs(indicator: AbstractIndicator):
-        if indicator in visited_indicators:
-            return
-        visited_indicators.add(indicator)
-        for pre_requisite in indicator.pre_requisites:
-            dfs(pre_requisite)
-        if indicator.is_basis():
-            result.add(indicator)
-
-    for indicator in indicators:
-        dfs(indicator)
-    return result
-
-
-def generate(**indicators: AbstractIndicator) -> Generator[dict[str, Any], None, None]:
-    """
-    Generate all indicators by flow.
-    """
-
-    bases: set[AbstractIndicator] = all_bases(*indicators.values())
-    if not bases:
-        raise ValueError("There is no basis indicator")
-
+    extended_toposorted: list[list[AbstractIndicator]] = toposort(*indicators.values())
     try:
         while True:
-            for basis in bases:
-                basis.update()
+            for batched_indicators in extended_toposorted:
+                for indicator in batched_indicators:
+                    indicator.update_single()
             yield {
                 indicator_name: indicator.value
                 for indicator_name, indicator in indicators.items()
             }
     except StopIteration:
+        pass
+
+
+async def generate_async(
+    **indicators: AbstractIndicator,
+) -> AsyncGenerator[dict[str, Any], None]:
+    """
+    Asynchronously generate all indicators by flow.
+    """
+    extended_toposorted: list[list[AbstractIndicator]] = toposort(*indicators.values())
+    try:
+        while True:
+            for batched_indicators in extended_toposorted:
+                done, pending = await asyncio.wait(
+                    [
+                        asyncio.create_task(indicator.update_single_async())
+                        for indicator in batched_indicators
+                    ],
+                    return_when=asyncio.FIRST_EXCEPTION,
+                )
+                while done:
+                    task = done.pop()
+                    exc = task.exception()
+                    if exc:
+                        for running_task in pending:
+                            running_task.cancel()
+                        raise exc
+            yield {
+                indicator_name: indicator.value
+                for indicator_name, indicator in indicators.items()
+            }
+    except StopAsyncIteration:
         pass

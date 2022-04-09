@@ -2,8 +2,7 @@ import random
 
 import matplotlib.pyplot as plt
 
-from indicator_management.indicators import AbstractIndicator, RawSeriesIndicator
-from indicator_management.orchestration import generate
+from indicator_management import AbstractIndicator, RawSeriesIndicator, generate_sync
 
 
 def main():
@@ -14,7 +13,7 @@ def main():
     i1 *= 2
     i2 = i1 * 2 + 1
 
-    y_total = list(generate(y1=i1, y2=i2))
+    y_total = list(generate_sync(y1=i1, y2=i2))
     y1 = [obj["y1"] for obj in y_total]
     y2 = [obj["y2"] for obj in y_total]
 
