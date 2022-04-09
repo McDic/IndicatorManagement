@@ -283,7 +283,7 @@ class ConstantIndicator(AbstractIndicator[T]):
         super().__init__(default_value=constant)
 
     def update_single(self) -> None:
-        pass
+        self.value = self._default_value
 
 
 class SummationIndicator(AbstractIndicator[T]):
