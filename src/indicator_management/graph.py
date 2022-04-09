@@ -1,3 +1,4 @@
+from .errors import CannotResolveIndicatorGraph
 from .indicators import AbstractIndicator
 
 
@@ -30,7 +31,11 @@ def toposort(*indicators: AbstractIndicator) -> list[list[AbstractIndicator]]:
     removed: set[AbstractIndicator] = set()
 
     graph_forward = {
-        indicator: indicator.get_post_dependencies()
+        indicator: {
+            next_indicator
+            for next_indicator in indicator.get_post_dependencies()
+            if next_indicator in expanded_indicators
+        }
         for indicator in expanded_indicators
     }
     graph_backward = {
@@ -43,7 +48,7 @@ def toposort(*indicators: AbstractIndicator) -> list[list[AbstractIndicator]]:
             result[0].append(indicator)
             removed.add(indicator)
     if not result[0]:
-        raise Exception(
+        raise CannotResolveIndicatorGraph(
             "There is no basis on given indicators. "
             "Perhaps you made an cyclic dependencies?"
         )
@@ -60,7 +65,7 @@ def toposort(*indicators: AbstractIndicator) -> list[list[AbstractIndicator]]:
                     removed.add(next_indicator)
 
     if len(removed) != len(expanded_indicators):
-        raise Exception(
+        raise CannotResolveIndicatorGraph(
             "There are some remaining unvisited indicators. "
             "Perhaps you made an cyclic dependencies?"
         )

@@ -62,6 +62,22 @@ class IndicatorTestCase(unittest.TestCase):
         self.assertAlmostEqual(next(sma3_values), 21 / 2)
         self.assertAlmostEqual(next(sma3_values), 17)
 
+    def test_trash_indicators(self) -> None:
+        raw_values, raw_indicator = self.create_new_raw_series_and_indicator(
+            [1, 2, 3, 4, 5]
+        )
+
+        i1 = raw_indicator**0.5 - 1
+        i2 = raw_indicator + 7
+        i3 = i1 * i2
+        i3 / 100
+        generator = generate_sync(i1=i1, i2=i2, i3=i3)
+
+        for raw_value, obj in zip(raw_values, generator, strict=True):
+            self.assertAlmostEqual(raw_value**0.5 - 1, obj["i1"])
+            self.assertAlmostEqual(raw_value + 7, obj["i2"])
+            self.assertAlmostEqual((raw_value**0.5 - 1) * (raw_value + 7), obj["i3"])
+
 
 if __name__ == "__main__":
     unittest.main()
