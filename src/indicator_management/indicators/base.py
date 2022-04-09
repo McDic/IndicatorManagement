@@ -181,7 +181,7 @@ class AbstractIndicator(Generic[T]):
     # Extra magic methods
 
     def __hash__(self) -> int:
-        return hash(id(self))
+        return hash(self.id)
 
     def __repr__(self):
         return "<Indicator id %d :: Type %s :: History %s :: %d dependencies(%s)>" % (
