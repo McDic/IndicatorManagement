@@ -1,8 +1,4 @@
-from .base import (
-    AbstractIndicator,
-    AbstractHistoryTrackingIndicator,
-    Numeric,
-)
+from .base import AbstractHistoryTrackingIndicator, AbstractIndicator, Numeric
 
 
 class SimpleMovingAverage(AbstractHistoryTrackingIndicator[Numeric]):

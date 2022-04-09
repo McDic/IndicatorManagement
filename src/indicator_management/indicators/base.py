@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from collections import deque
 from numbers import Number
 from typing import (
@@ -14,7 +15,6 @@ from typing import (
     TypeVar,
     Union,
 )
-
 
 T = TypeVar("T")
 Numeric = Union[Number, SupportsFloat]

@@ -1,10 +1,10 @@
-from typing import Iterable
 import unittest
+from typing import Iterable
 
 from src.indicator_management.indicators import (
     RawSeriesIndicator,
-    SummationIndicator,
     SimpleMovingAverage,
+    SummationIndicator,
 )
 from src.indicator_management.orchestration import generate
 
