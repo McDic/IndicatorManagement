@@ -1,10 +1,14 @@
 import unittest
+from math import cos, sin, tan
 from typing import Iterable
 
 from src.indicator_management import (
+    CosineIndicator,
     RawSeriesIndicator,
     SimpleMovingAverage,
+    SineIndicator,
     SummationIndicator,
+    TangentIndicator,
     generate_sync,
 )
 
@@ -77,6 +81,21 @@ class IndicatorTestCase(unittest.TestCase):
             self.assertAlmostEqual(raw_value**0.5 - 1, obj["i1"])
             self.assertAlmostEqual(raw_value + 7, obj["i2"])
             self.assertAlmostEqual((raw_value**0.5 - 1) * (raw_value + 7), obj["i3"])
+
+    def test_trigonometric_indicators(self) -> None:
+        raw_values, raw_indicator = self.create_new_raw_series_and_indicator(
+            [1, 2, 3, 4, 5]
+        )
+
+        i_sin = SineIndicator(raw_indicator)
+        i_cos = CosineIndicator(raw_indicator)
+        i_tan = TangentIndicator(raw_indicator)
+        for raw_value, obj in zip(
+            raw_values, generate_sync(s=i_sin, c=i_cos, t=i_tan), strict=True
+        ):
+            self.assertAlmostEqual(sin(raw_value), obj["s"])
+            self.assertAlmostEqual(cos(raw_value), obj["c"])
+            self.assertAlmostEqual(tan(raw_value), obj["t"])
 
 
 if __name__ == "__main__":
