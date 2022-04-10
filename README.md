@@ -15,8 +15,8 @@ The source data is not fully loaded at once, instead the library calculates and 
 ![Imgur](https://i.imgur.com/34E2mWA.gif)
 
 Of course, you can perform any mathematical/statistical operation based on indicators.
-Currently I've implemented basic arithmetic operations, and few statistical operations.
-I am planning to support some more operations like trigonometric functions, logarithm, [RSI](https://www.investopedia.com/terms/r/rsi.asp), etc.
+Currently I've implemented basic arithmetic operations, some mathematical operations, and few statistical operations.
+I am planning to support some more operations and financial indicators like inverse trigonometric functions, [RSI](https://www.investopedia.com/terms/r/rsi.asp), etc.
 
 # Dependencies
 
@@ -39,5 +39,6 @@ Please have a look at `examples` folder.
 
 # Planned Future Features
 
+- Implement comparison operators for indicators
 - Implement more financial indicators including MACD, RSI, etc
 - Implement matplotlib integration
