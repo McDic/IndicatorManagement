@@ -18,7 +18,7 @@ class SimpleMovingAverage(AbstractHistoryTrackingIndicator[Numeric]):
 
     def update_single_after_history_shift(self) -> None:
         self._sum += self.pre_requisites[0](0) or 0.0  # type: ignore
-        self.value = (
+        self.set_value(
             self._sum / (self._tracking_length - self._none_count)
             if self._tracking_length > self._none_count
             else None
@@ -46,7 +46,7 @@ class SimpleMovingVariance(AbstractHistoryTrackingIndicator[Numeric]):
         self._sum += value  # type: ignore
         self._square_sum += value**2  # type: ignore
         length = self._tracking_length - self._none_count
-        self.value = (
+        self.set_value(
             self._square_sum / length - (self._sum / length) ** 2
             if length > 0
             else None

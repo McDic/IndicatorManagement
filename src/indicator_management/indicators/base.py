@@ -18,6 +18,8 @@ from typing import (
     cast,
 )
 
+from sortedcontainers import SortedList
+
 from ..utils import multiply, summation
 from .extra_types import Numeric, NumericOperationProtocol
 
@@ -65,6 +67,7 @@ class AbstractIndicator(Generic[T]):
         *pre_requisites: AbstractIndicator,
         default_value: Optional[T] = None,
         history_length: int = 1,
+        maintain_statistics: bool = False,
     ) -> None:
         self.id = AbstractIndicator.global_nonce
         AbstractIndicator.global_nonce += 1
@@ -74,7 +77,8 @@ class AbstractIndicator(Generic[T]):
             (None for _ in range(history_length - 1)),
             maxlen=history_length,
         )
-        self.indicator_history.append(self._default_value)
+        self.indicator_statistics = SortedList()
+
         self._post_dependencies: list[AbstractIndicator] = []
 
         self.pre_requisites: tuple[AbstractIndicator, ...] = pre_requisites
@@ -82,25 +86,30 @@ class AbstractIndicator(Generic[T]):
         for pre_requisite in self.pre_requisites:
             pre_requisite._post_dependencies.append(self)
 
+        if maintain_statistics:
+            self.set_value = self._set_value_with_statistics  # type: ignore
+        self.set_value(self._default_value)
+
     # =================================================================================
     # Indicator / History related
 
-    def _get_value(self) -> Optional[T]:
+    def _set_value_with_statistics(self, v: Optional[T]):
         """
-        Return the current value of this indicator.
+        Set the new value of this indicator,
+        with maintaining statistics.
         """
-        return self(0)
+        removing_value = self.indicator_history[0]
+        if removing_value is not None:
+            self.indicator_statistics.remove(removing_value)
+        self.set_value(v)
+        if v is not None:
+            self.indicator_statistics.add(v)
 
-    def _set_value(self, v: Optional[T]):
+    def set_value(self, v: Optional[T]):
         """
         Set the new value of this indicator.
         """
         self.indicator_history.append(v)
-
-    value = property(
-        fget=(lambda self: self._get_value()),
-        fset=(lambda self, v: self._set_value(v)),
-    )
 
     def resize_history(self, history_length: int, increase_only: bool = True):
         """
@@ -226,13 +235,13 @@ def default_if_none_in_pre_requisites(
 ) -> Callable[[AI], None]:
     """
     Decorate this to `Indicator.update_single` if
-    you want to force `self.value = None` when
-    any pre-requisite indicator have `None` value.
+    you want to force `self._set_value(self._default_value)`
+    when any pre-requisite indicator have `None` value.
     """
 
     def inner_method(self: AI) -> None:
-        if any((indicator.value is None) for indicator in self.pre_requisites):
-            self.value = self._default_value
+        if any((indicator(0) is None) for indicator in self.pre_requisites):
+            self.set_value(self._default_value)
         else:
             method(self)
 
@@ -256,7 +265,7 @@ class RawSeriesIndicator(AbstractIndicator[T]):
             raise StopAsyncIteration(*exc.args).with_traceback(exc.__traceback__)
 
     def update_single(self) -> None:
-        self.value = next(self._raw_values)
+        self.set_value(next(self._raw_values))
 
 
 class AsyncRawSeriesIndicator(AbstractIndicator[T]):
@@ -277,7 +286,7 @@ class AsyncRawSeriesIndicator(AbstractIndicator[T]):
         )
 
     async def update_single_async(self) -> None:
-        self.value = await self._raw_values.__anext__()
+        self.set_value(await self._raw_values.__anext__())
 
 
 class ConstantIndicator(AbstractIndicator[T]):
@@ -289,7 +298,7 @@ class ConstantIndicator(AbstractIndicator[T]):
         super().__init__(default_value=constant)
 
     def update_single(self) -> None:
-        self.value = self._default_value
+        self.set_value(self._default_value)
 
 
 N_or_AIN = Union[Numeric, AbstractIndicator[Numeric]]
@@ -322,8 +331,10 @@ class AbstractNumericOperationIndicator(AbstractIndicator[Numeric]):
 
     @default_if_none_in_pre_requisites
     def update_single(self):
-        self.value = self._numeric_func(
-            *(indicator.value for indicator in self.pre_requisites)
+        self.set_value(
+            self._numeric_func(
+                *(indicator(0) for indicator in self.pre_requisites)  # type: ignore
+            )
         )
 
 
@@ -406,8 +417,8 @@ class IndexAccessIndicator(AbstractIndicator[T]):
 
     @default_if_none_in_pre_requisites
     def update_single(self) -> None:
-        value = self.pre_requisites[0].value
-        self.value = value[self._index]
+        value = self.pre_requisites[0](0)
+        self.set_value(value[self._index])  # type: ignore
 
 
 class AbstractHistoryTrackingIndicator(AbstractIndicator[T]):
@@ -416,14 +427,8 @@ class AbstractHistoryTrackingIndicator(AbstractIndicator[T]):
     This indicator also tracks number of `None`s in tracking history.
     """
 
-    def __init__(
-        self,
-        indicator: AbstractIndicator,
-        length: int,
-        *,
-        default_value: Optional[T] = None,
-    ) -> None:
-        super().__init__(indicator, default_value=default_value)
+    def __init__(self, indicator: AbstractIndicator, length: int, **kwargs) -> None:
+        super().__init__(indicator, **kwargs)
         self._tracking_length: int = length
         indicator.resize_history(self._tracking_length, increase_only=True)
         self._removed_value: Optional[Any] = indicator(self._tracking_length - 1)
@@ -436,7 +441,7 @@ class AbstractHistoryTrackingIndicator(AbstractIndicator[T]):
         if self._removed_value is None:
             self._none_count -= 1
         self._removed_value = self.pre_requisites[0](self._tracking_length - 1)
-        if self.pre_requisites[0].value is None:
+        if self.pre_requisites[0](0) is None:
             self._none_count += 1
         self.update_single_after_history_shift()
 

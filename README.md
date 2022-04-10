@@ -21,6 +21,7 @@ I am planning to support some more operations like trigonometric functions, loga
 # Dependencies
 
 - Python 3.10+
+    - [sortedcontainers](https://github.com/grantjenks/python-sortedcontainers)
 
 I am planning to support lower Python version like 3.7.
 

@@ -6,4 +6,5 @@ isort
 matplotlib
 mypy
 pre-commit
+sortedcontainers
 twine

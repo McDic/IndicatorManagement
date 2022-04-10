@@ -18,7 +18,7 @@ def generate_sync(
                 for indicator in batched_indicators:
                     indicator.update_single()
             yield {
-                indicator_name: indicator.value
+                indicator_name: indicator(0)
                 for indicator_name, indicator in indicators.items()
             }
     except StopIteration:
@@ -50,7 +50,7 @@ async def generate_async(
                             running_task.cancel()
                         raise exc
             yield {
-                indicator_name: indicator.value
+                indicator_name: indicator(0)
                 for indicator_name, indicator in indicators.items()
             }
     except StopAsyncIteration:
