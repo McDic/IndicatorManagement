@@ -11,6 +11,7 @@ from .base import (
     SubtractionIndicator,
     SummationIndicator,
 )
+from .comparisons import SimpleMax, SimpleMin
 from .financial import bollinger_band
 from .mathematical import (
     CosineIndicator,

@@ -7,6 +7,8 @@ from src.indicator_management import (
     CosineIndicator,
     RawSeriesIndicator,
     SimpleHistoricalStats,
+    SimpleMax,
+    SimpleMin,
     SimpleMovingAverage,
     SineIndicator,
     SummationIndicator,
@@ -116,6 +118,29 @@ class IndicatorTestCase(unittest.TestCase):
                 statistics.median(filter(None, raw_values[max(0, i - 2) : i + 1])),
                 obj["stat"]["median"],
             )
+
+    def test_simple_min_max(self) -> None:
+        raw_values1, raw_indicator1 = self.create_new_raw_series_and_indicator(
+            [1, 1, 2, 2, 3, 3]
+        )
+        raw_values2, raw_indicator2 = self.create_new_raw_series_and_indicator(
+            [2, 3, 1, 3, 1, 2]
+        )
+        raw_values3, raw_indicator3 = self.create_new_raw_series_and_indicator(
+            [3, 2, 3, 1, 2, 1]
+        )
+
+        min_indicator = SimpleMin(raw_indicator1, raw_indicator2, raw_indicator3)
+        max_indicator = SimpleMax(raw_indicator1, raw_indicator2, raw_indicator3)
+        for v1, v2, v3, obj in zip(
+            raw_values1,
+            raw_values2,
+            raw_values3,
+            generate_sync(min=min_indicator, max=max_indicator),
+            strict=True,
+        ):
+            self.assertEqual(min(v1, v2, v3), obj["min"])
+            self.assertEqual(max(v1, v2, v3), obj["max"])
 
 
 if __name__ == "__main__":
