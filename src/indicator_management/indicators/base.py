@@ -128,33 +128,33 @@ class AbstractIndicator(Generic[T]):
 
     @indicatorized_arguments
     def __add__(self, other) -> SummationIndicator:
-        return SummationIndicator(self, other)
+        return SummationIndicator(cast(AbstractIndicator[Numeric], self), other)
 
     def __radd__(self, other) -> SummationIndicator:
         return self.__add__(other)
 
     @indicatorized_arguments
     def __sub__(self, other) -> SubtractionIndicator:
-        return SubtractionIndicator(self, other)
+        return SubtractionIndicator(cast(AbstractIndicator[Numeric], self), other)
 
     @indicatorized_arguments
     def __rsub__(self, other) -> SubtractionIndicator:
-        return SubtractionIndicator(other, self)
+        return SubtractionIndicator(other, cast(AbstractIndicator[Numeric], self))
 
     @indicatorized_arguments
     def __mul__(self, other) -> MultiplicationIndicator:
-        return MultiplicationIndicator(self, other)
+        return MultiplicationIndicator(cast(AbstractIndicator[Numeric], self), other)
 
     def __rmul__(self, other):
         return self.__mul__(other)
 
     @indicatorized_arguments
     def __truediv__(self, other) -> DivisionIndicator:
-        return DivisionIndicator(self, other)
+        return DivisionIndicator(cast(AbstractIndicator[Numeric], self), other)
 
     @indicatorized_arguments
     def __rtruediv__(self, other) -> DivisionIndicator:
-        return DivisionIndicator(other, self)
+        return DivisionIndicator(other, cast(AbstractIndicator[Numeric], self))
 
     def __pos__(self) -> AbstractIndicator:
         return self
@@ -164,11 +164,11 @@ class AbstractIndicator(Generic[T]):
 
     @indicatorized_arguments
     def __pow__(self, other) -> PowerIndicator:
-        return PowerIndicator(self, other)
+        return PowerIndicator(cast(AbstractIndicator[Numeric], self), other)
 
     @indicatorized_arguments
     def __rpow__(self, other) -> PowerIndicator:
-        return PowerIndicator(other, self)
+        return PowerIndicator(other, cast(AbstractIndicator[Numeric], self))
 
     # =================================================================================
     # Other operations which produces indicators
@@ -296,6 +296,9 @@ class ConstantIndicator(AbstractIndicator[T]):
         self.value = self._default_value
 
 
+N_or_AIN = Union[Numeric, AbstractIndicator[Numeric]]
+
+
 class AbstractNumericOperationIndicator(AbstractIndicator[Numeric]):
     """
     Abstract base of all indicators made by numeric operations.
@@ -303,11 +306,22 @@ class AbstractNumericOperationIndicator(AbstractIndicator[Numeric]):
 
     def __init__(
         self,
-        *pre_requisites: AbstractIndicator[Numeric],
+        *pre_requisites: N_or_AIN,
         numeric_func: NumericOperationProtocol,
         **kwargs,
     ) -> None:
-        super().__init__(*pre_requisites, **kwargs)
+        for pre_requisite in pre_requisites:
+            if not isinstance(pre_requisite, (Number, AbstractIndicator)):
+                raise TypeError
+        super().__init__(
+            *(
+                pre_requisite
+                if isinstance(pre_requisite, AbstractIndicator)
+                else ConstantIndicator(pre_requisite)
+                for pre_requisite in pre_requisites
+            ),
+            **kwargs,
+        )
         self._numeric_func = numeric_func
 
     @default_if_none_in_pre_requisites
@@ -322,7 +336,7 @@ class SummationIndicator(AbstractNumericOperationIndicator):
     Summation of indicators.
     """
 
-    def __init__(self, *indicators: AbstractIndicator, **kwargs) -> None:
+    def __init__(self, *indicators: N_or_AIN, **kwargs) -> None:
         super().__init__(*indicators, numeric_func=summation, **kwargs)
 
 
@@ -331,7 +345,7 @@ class MultiplicationIndicator(AbstractNumericOperationIndicator):
     Multiplication of indicators.
     """
 
-    def __init__(self, *indicators: AbstractIndicator, **kwargs) -> None:
+    def __init__(self, *indicators: N_or_AIN, **kwargs) -> None:
         super().__init__(*indicators, numeric_func=multiply, **kwargs)
 
 
@@ -340,9 +354,7 @@ class SubtractionIndicator(AbstractNumericOperationIndicator):
     Arithmetic subtraction of two indicators.
     """
 
-    def __init__(
-        self, indicator1: AbstractIndicator, indicator2: AbstractIndicator, **kwargs
-    ) -> None:
+    def __init__(self, indicator1: N_or_AIN, indicator2: N_or_AIN, **kwargs) -> None:
         super().__init__(
             indicator1,
             indicator2,
@@ -357,9 +369,7 @@ class DivisionIndicator(AbstractNumericOperationIndicator):
     Note that division by zero will make this indicator value to default value.
     """
 
-    def __init__(
-        self, indicator1: AbstractIndicator, indicator2: AbstractIndicator, **kwargs
-    ) -> None:
+    def __init__(self, indicator1: N_or_AIN, indicator2: N_or_AIN, **kwargs) -> None:
         super().__init__(
             indicator1,
             indicator2,
@@ -375,9 +385,7 @@ class PowerIndicator(AbstractNumericOperationIndicator):
     Power operation of two indicators.
     """
 
-    def __init__(
-        self, indicator1: AbstractIndicator, indicator2: AbstractIndicator, **kwargs
-    ) -> None:
+    def __init__(self, indicator1: N_or_AIN, indicator2: N_or_AIN, **kwargs) -> None:
         super().__init__(
             indicator1,
             indicator2,
