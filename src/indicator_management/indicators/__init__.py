@@ -11,10 +11,15 @@ from .base import (
     SubtractionIndicator,
     SummationIndicator,
 )
-from .financial import SimpleMovingAverage, SimpleMovingVariance, bollinger_band
+from .financial import bollinger_band
 from .mathematical import (
     CosineIndicator,
     LogarithmIndicator,
     SineIndicator,
     TangentIndicator,
+)
+from .statistical import (
+    SimpleHistoricalStats,
+    SimpleMovingAverage,
+    SimpleMovingVariance,
 )

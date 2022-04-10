@@ -1,3 +1,4 @@
+import statistics
 import unittest
 from math import cos, sin, tan
 from typing import Iterable
@@ -5,6 +6,7 @@ from typing import Iterable
 from src.indicator_management import (
     CosineIndicator,
     RawSeriesIndicator,
+    SimpleHistoricalStats,
     SimpleMovingAverage,
     SineIndicator,
     SummationIndicator,
@@ -96,6 +98,24 @@ class IndicatorTestCase(unittest.TestCase):
             self.assertAlmostEqual(sin(raw_value), obj["s"])
             self.assertAlmostEqual(cos(raw_value), obj["c"])
             self.assertAlmostEqual(tan(raw_value), obj["t"])
+
+    def test_historial_stats(self) -> None:
+        raw_values, raw_indicator = self.create_new_raw_series_and_indicator(
+            [7, 5, 2, 8, 6, None, 1]
+        )
+
+        i_stats = SimpleHistoricalStats(raw_indicator, 3)
+        for i, obj in enumerate(generate_sync(stat=i_stats)):
+            self.assertEqual(
+                min(filter(None, raw_values[max(0, i - 2) : i + 1])), obj["stat"]["min"]
+            )
+            self.assertEqual(
+                max(filter(None, raw_values[max(0, i - 2) : i + 1])), obj["stat"]["max"]
+            )
+            self.assertAlmostEqual(
+                statistics.median(filter(None, raw_values[max(0, i - 2) : i + 1])),
+                obj["stat"]["median"],
+            )
 
 
 if __name__ == "__main__":

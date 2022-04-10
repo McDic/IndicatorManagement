@@ -67,7 +67,6 @@ class AbstractIndicator(Generic[T]):
         *pre_requisites: AbstractIndicator,
         default_value: Optional[T] = None,
         history_length: int = 1,
-        maintain_statistics: bool = False,
     ) -> None:
         self.id = AbstractIndicator.global_nonce
         AbstractIndicator.global_nonce += 1
@@ -77,7 +76,6 @@ class AbstractIndicator(Generic[T]):
             (None for _ in range(history_length - 1)),
             maxlen=history_length,
         )
-        self.indicator_statistics = SortedList()
 
         self._post_dependencies: list[AbstractIndicator] = []
 
@@ -85,25 +83,10 @@ class AbstractIndicator(Generic[T]):
         assert len(self.pre_requisites) == len(set(self.pre_requisites))
         for pre_requisite in self.pre_requisites:
             pre_requisite._post_dependencies.append(self)
-
-        if maintain_statistics:
-            self.set_value = self._set_value_with_statistics  # type: ignore
         self.set_value(self._default_value)
 
     # =================================================================================
     # Indicator / History related
-
-    def _set_value_with_statistics(self, v: Optional[T]):
-        """
-        Set the new value of this indicator,
-        with maintaining statistics.
-        """
-        removing_value = self.indicator_history[0]
-        if removing_value is not None:
-            self.indicator_statistics.remove(removing_value)
-        self.set_value(v)
-        if v is not None:
-            self.indicator_statistics.add(v)
 
     def set_value(self, v: Optional[T]):
         """
@@ -235,7 +218,7 @@ def default_if_none_in_pre_requisites(
 ) -> Callable[[AI], None]:
     """
     Decorate this to `Indicator.update_single` if
-    you want to force `self._set_value(self._default_value)`
+    you want to force `self.set_value(self._default_value)`
     when any pre-requisite indicator have `None` value.
     """
 
@@ -428,9 +411,9 @@ class AbstractHistoryTrackingIndicator(AbstractIndicator[T]):
     """
 
     def __init__(self, indicator: AbstractIndicator, length: int, **kwargs) -> None:
-        super().__init__(indicator, **kwargs)
         self._tracking_length: int = length
         indicator.resize_history(self._tracking_length, increase_only=True)
+        super().__init__(indicator, history_length=self._tracking_length, **kwargs)
         self._removed_value: Optional[Any] = indicator(self._tracking_length - 1)
         self._none_count: int = sum(
             1 for i in range(self._tracking_length) if indicator(i) is None
@@ -462,3 +445,26 @@ class AbstractHistoryTrackingIndicator(AbstractIndicator[T]):
         for this indicator's value state.
         """
         raise NotImplementedError
+
+
+class AbstractStatisticTrackingIndicator(AbstractHistoryTrackingIndicator[T]):
+    """
+    Abstract base of all statistic-tracking indicators.
+    The reason why statistic is saved in child class
+    while history is saved in parent class is, otherwise
+    statistic is not reliable when the older value exists.
+    """
+
+    def __init__(self, indicator: AbstractIndicator, length: int, **kwargs) -> None:
+        super().__init__(indicator, length, **kwargs)
+        self.indicator_statistics: SortedList[T] = SortedList()
+
+    def update_single_before_history_shift(self) -> None:
+        value = self._removed_value
+        if value is not None:
+            self.indicator_statistics.remove(value)
+
+    def update_single_after_history_shift(self) -> None:
+        value = self.pre_requisites[0](0)
+        if value is not None:
+            self.indicator_statistics.add(value)
