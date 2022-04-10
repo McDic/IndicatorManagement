@@ -79,11 +79,7 @@ class AbstractIndicator(Generic[T]):
 
         self.pre_requisites: tuple[AbstractIndicator, ...] = pre_requisites
         assert len(self.pre_requisites) == len(set(self.pre_requisites))
-        self._pre_requisites_trigger: dict[AbstractIndicator, bool] = {
-            pre_requisite: False for pre_requisite in self.pre_requisites
-        }
-        self._pre_requisite_counter: int = len(self.pre_requisites)
-        for pre_requisite in self._pre_requisites_trigger:
+        for pre_requisite in self.pre_requisites:
             pre_requisite._post_dependencies.append(self)
 
     # =================================================================================
