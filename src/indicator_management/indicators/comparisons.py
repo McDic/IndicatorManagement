@@ -1,30 +1,17 @@
-from typing import cast
-
-from .base import AbstractNumericOperationIndicator, N_or_AIN
-from .extra_types import NumericOperationProtocol
+from .base import AbstractIndicator, OperationIndicator, indicatorized_arguments
 
 
-class SimpleMin(AbstractNumericOperationIndicator):
+@indicatorized_arguments
+def minimum(*indicators: AbstractIndicator, **kwargs) -> OperationIndicator:
     """
     Minimum indicator. Generates minimum of all dependencies'.
     """
-
-    def __init__(self, *pre_requisites: N_or_AIN, **kwargs) -> None:
-        super().__init__(
-            *pre_requisites,
-            numeric_func=cast(NumericOperationProtocol, min),
-            **kwargs,
-        )
+    return OperationIndicator(*indicators, operation=min, **kwargs)
 
 
-class SimpleMax(AbstractNumericOperationIndicator):
+@indicatorized_arguments
+def maximum(*indicators: AbstractIndicator, **kwargs) -> OperationIndicator:
     """
     Maximum indicator. Generates maximum of all dependencies'.
     """
-
-    def __init__(self, *pre_requisites: N_or_AIN, **kwargs) -> None:
-        super().__init__(
-            *pre_requisites,
-            numeric_func=cast(NumericOperationProtocol, max),
-            **kwargs,
-        )
+    return OperationIndicator(*indicators, operation=max, **kwargs)

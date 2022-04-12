@@ -8,28 +8,25 @@ from typing import (
     AsyncIterable,
     Callable,
     Generic,
-    Hashable,
     Iterable,
     Iterator,
     Optional,
     Protocol,
     TypeVar,
     Union,
-    cast,
 )
 
 from sortedcontainers import SortedList
 
-from ..utils import multiply, summation
-from .extra_types import Numeric, NumericOperationProtocol
+from .._types import Numeric, T
+from ..utils import wrapped_multiplication, wrapped_summation
 
-T = TypeVar("T")
 IOPR_co = TypeVar("IOPR_co", covariant=True)
 
 
 class IndicatorOperationProtocol(Protocol[IOPR_co]):
     def __call__(
-        self, *indicator_or_numbers: Union[AbstractIndicator, Numeric]
+        self, *indicator_or_numbers: Union[AbstractIndicator, Numeric], **kwargs
     ) -> IOPR_co:
         raise NotImplementedError
 
@@ -41,7 +38,9 @@ def indicatorized_arguments(func: Callable[..., T]) -> IndicatorOperationProtoco
     will be changed into `ConstantIndicator`.
     """
 
-    def inner_function(*indicator_or_numbers: Union[AbstractIndicator, Numeric]) -> T:
+    def inner_function(
+        *indicator_or_numbers: Union[AbstractIndicator, Numeric], **kwargs
+    ) -> T:
         result = []
         for obj in indicator_or_numbers:
             if isinstance(obj, AbstractIndicator):
@@ -50,7 +49,7 @@ def indicatorized_arguments(func: Callable[..., T]) -> IndicatorOperationProtoco
                 result.append(ConstantIndicator(obj))
             else:
                 raise TypeError
-        return func(*result)
+        return func(*result, **kwargs)
 
     return inner_function
 
@@ -114,55 +113,47 @@ class AbstractIndicator(Generic[T]):
     # =================================================================================
     # Arithmetic operations
 
-    @indicatorized_arguments
-    def __add__(self, other) -> SummationIndicator:
-        return SummationIndicator(cast(AbstractIndicator[Numeric], self), other)
+    def __add__(self, other) -> OperationIndicator:
+        return summation(self, other, start=0)
 
-    def __radd__(self, other) -> SummationIndicator:
-        return self.__add__(other)
+    def __radd__(self, other) -> OperationIndicator:
+        return summation(other, self, start=0)
 
-    @indicatorized_arguments
-    def __sub__(self, other) -> SubtractionIndicator:
-        return SubtractionIndicator(cast(AbstractIndicator[Numeric], self), other)
+    def __sub__(self, other) -> OperationIndicator:
+        return subtraction(self, other)
 
-    @indicatorized_arguments
-    def __rsub__(self, other) -> SubtractionIndicator:
-        return SubtractionIndicator(other, cast(AbstractIndicator[Numeric], self))
+    def __rsub__(self, other) -> OperationIndicator:
+        return subtraction(other, self)
 
-    @indicatorized_arguments
-    def __mul__(self, other) -> MultiplicationIndicator:
-        return MultiplicationIndicator(cast(AbstractIndicator[Numeric], self), other)
+    def __mul__(self, other) -> OperationIndicator:
+        return multiplication(self, other, start=1)
 
-    def __rmul__(self, other):
-        return self.__mul__(other)
+    def __rmul__(self, other) -> OperationIndicator:
+        return multiplication(other, self, start=1)
 
-    @indicatorized_arguments
-    def __truediv__(self, other) -> DivisionIndicator:
-        return DivisionIndicator(cast(AbstractIndicator[Numeric], self), other)
+    def __truediv__(self, other) -> OperationIndicator:
+        return division(self, other)
 
-    @indicatorized_arguments
-    def __rtruediv__(self, other) -> DivisionIndicator:
-        return DivisionIndicator(other, cast(AbstractIndicator[Numeric], self))
+    def __rtruediv__(self, other) -> OperationIndicator:
+        return division(other, self)
 
     def __pos__(self) -> AbstractIndicator:
         return self
 
-    def __neg__(self) -> MultiplicationIndicator:
+    def __neg__(self) -> OperationIndicator:
         return self * -1
 
-    @indicatorized_arguments
-    def __pow__(self, other) -> PowerIndicator:
-        return PowerIndicator(cast(AbstractIndicator[Numeric], self), other)
+    def __pow__(self, other) -> OperationIndicator:
+        return power(self, other)
 
-    @indicatorized_arguments
-    def __rpow__(self, other) -> PowerIndicator:
-        return PowerIndicator(other, cast(AbstractIndicator[Numeric], self))
+    def __rpow__(self, other) -> OperationIndicator:
+        return power(other, self)
 
     # =================================================================================
     # Other operations which produces indicators
 
-    def __getitem__(self, index) -> IndexAccessIndicator:
-        return IndexAccessIndicator(self, index)
+    def __getitem__(self, index: Any) -> OperationIndicator:
+        return index_access(self, index=index)
 
     # =================================================================================
     # Extra magic methods
@@ -287,121 +278,100 @@ class ConstantIndicator(AbstractIndicator[T]):
 N_or_AIN = Union[Numeric, AbstractIndicator[Numeric]]
 
 
-class AbstractNumericOperationIndicator(AbstractIndicator[Numeric]):
+class OperationIndicator(AbstractIndicator[T]):
     """
-    Abstract base of all indicators made by numeric operations.
+    Base of all operational indicators.
     """
 
     def __init__(
         self,
-        *pre_requisites: N_or_AIN,
-        numeric_func: NumericOperationProtocol,
+        *pre_requisites: AbstractIndicator,
+        operation: Callable[..., T],
         **kwargs,
     ) -> None:
-        for pre_requisite in pre_requisites:
-            if not isinstance(pre_requisite, (Number, AbstractIndicator)):
-                raise TypeError
-        super().__init__(
-            *(
-                pre_requisite
-                if isinstance(pre_requisite, AbstractIndicator)
-                else ConstantIndicator(pre_requisite)
-                for pre_requisite in pre_requisites
-            ),
-            **kwargs,
-        )
-        self._numeric_func = numeric_func
+        super().__init__(*pre_requisites, **kwargs)
+        self._operation = operation
 
     @default_if_none_in_pre_requisites
-    def update_single(self):
+    def update_single(self) -> None:
         self.set_value(
-            self._numeric_func(
-                *(indicator(0) for indicator in self.pre_requisites)  # type: ignore
+            self._operation(
+                *(pre_requisite(0) for pre_requisite in self.pre_requisites)
             )
         )
 
 
-class SummationIndicator(AbstractNumericOperationIndicator):
+@indicatorized_arguments
+def summation(
+    *indicators: AbstractIndicator, start: T, **kwargs
+) -> OperationIndicator[T]:
     """
     Summation of indicators.
     """
+    return OperationIndicator(
+        *indicators,
+        operation=wrapped_summation(start),
+        **kwargs,
+    )
 
-    def __init__(self, *indicators: N_or_AIN, **kwargs) -> None:
-        super().__init__(*indicators, numeric_func=summation, **kwargs)
 
-
-class MultiplicationIndicator(AbstractNumericOperationIndicator):
+@indicatorized_arguments
+def multiplication(
+    *indicators: AbstractIndicator, start: T, **kwargs
+) -> OperationIndicator[T]:
     """
     Multiplication of indicators.
     """
+    return OperationIndicator(
+        *indicators, operation=wrapped_multiplication(start), **kwargs
+    )
 
-    def __init__(self, *indicators: N_or_AIN, **kwargs) -> None:
-        super().__init__(*indicators, numeric_func=multiply, **kwargs)
 
-
-class SubtractionIndicator(AbstractNumericOperationIndicator):
+@indicatorized_arguments
+def subtraction(
+    indicator1: AbstractIndicator, indicator2: AbstractIndicator, **kwargs
+) -> OperationIndicator:
     """
-    Arithmetic subtraction of two indicators.
+    Subtraction of two indicators.
     """
-
-    def __init__(self, indicator1: N_or_AIN, indicator2: N_or_AIN, **kwargs) -> None:
-        super().__init__(
-            indicator1,
-            indicator2,
-            numeric_func=cast(NumericOperationProtocol, lambda x, y: x - y),
-            **kwargs,
-        )
+    return OperationIndicator(
+        indicator1, indicator2, operation=(lambda x, y: x - y), **kwargs
+    )
 
 
-class DivisionIndicator(AbstractNumericOperationIndicator):
+@indicatorized_arguments
+def division(
+    indicator1: AbstractIndicator, indicator2: AbstractIndicator, **kwargs
+) -> OperationIndicator:
     """
-    Arithmetic division of two indicators.
-    Note that division by zero will make this indicator value to default value.
+    Division of two indicators.
     """
-
-    def __init__(self, indicator1: N_or_AIN, indicator2: N_or_AIN, **kwargs) -> None:
-        super().__init__(
-            indicator1,
-            indicator2,
-            numeric_func=cast(
-                NumericOperationProtocol, lambda x, y: x / y if y else None
-            ),
-            **kwargs,
-        )
+    return OperationIndicator(
+        indicator1, indicator2, operation=(lambda x, y: x / y if y else None), **kwargs
+    )
 
 
-class PowerIndicator(AbstractNumericOperationIndicator):
+@indicatorized_arguments
+def power(
+    indicator1: AbstractIndicator, indicator2: AbstractIndicator, **kwargs
+) -> OperationIndicator:
     """
     Power operation of two indicators.
     """
-
-    def __init__(self, indicator1: N_or_AIN, indicator2: N_or_AIN, **kwargs) -> None:
-        super().__init__(
-            indicator1,
-            indicator2,
-            numeric_func=cast(NumericOperationProtocol, pow),
-            **kwargs,
-        )
+    return OperationIndicator(
+        indicator1, indicator2, operation=(lambda x, y: x**y), **kwargs
+    )
 
 
-class IndexAccessIndicator(AbstractIndicator[T]):
+def index_access(
+    indicator: AbstractIndicator, *, index: Any, **kwargs
+) -> OperationIndicator:
     """
-    Index accessing indicators.
+    Index access operation of an indicator.
     """
-
-    def __init__(
-        self,
-        indicator: AbstractIndicator,
-        index: Hashable,
-        **kwargs,
-    ) -> None:
-        super().__init__(indicator, **kwargs)
-        self._index = index
-
-    @default_if_none_in_pre_requisites
-    def update_single(self) -> None:
-        value = self.pre_requisites[0](0)
-        self.set_value(value[self._index])  # type: ignore
+    return OperationIndicator(
+        indicator, operation=(lambda x: x[index] if x is not None else None), **kwargs
+    )
 
 
 class AbstractHistoryTrackingIndicator(AbstractIndicator[T]):

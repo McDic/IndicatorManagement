@@ -3,22 +3,17 @@ from .base import (
     AbstractIndicator,
     AsyncRawSeriesIndicator,
     ConstantIndicator,
-    DivisionIndicator,
-    IndexAccessIndicator,
-    MultiplicationIndicator,
-    PowerIndicator,
     RawSeriesIndicator,
-    SubtractionIndicator,
-    SummationIndicator,
+    division,
+    index_access,
+    multiplication,
+    power,
+    subtraction,
+    summation,
 )
-from .comparisons import SimpleMax, SimpleMin
+from .comparisons import maximum, minimum
 from .financial import bollinger_band
-from .mathematical import (
-    CosineIndicator,
-    LogarithmIndicator,
-    SineIndicator,
-    TangentIndicator,
-)
+from .mathematical import cos, log, sin, tan
 from .statistical import (
     SimpleHistoricalStats,
     SimpleMovingAverage,
