@@ -19,7 +19,7 @@ from typing import (
 
 from sortedcontainers import SortedList
 
-from .._types import Numeric, T
+from .._types import BoundMethod, Numeric, T
 from ..utils import wrapped_multiplication, wrapped_summation
 
 IOPR_co = TypeVar("IOPR_co", covariant=True)
@@ -207,19 +207,20 @@ AI = TypeVar("AI", bound=AbstractIndicator)
 
 
 def default_if_none_in_pre_requisites(
-    method: Callable[[AI], None]
-) -> Callable[[AI], None]:
+    method: BoundMethod[AI, None]
+) -> Callable[[], None]:
     """
     Decorate this to `Indicator.update_single` if
     you want to force `self.set_value(self._default_value)`
     when any pre-requisite indicator have `None` value.
     """
 
-    def inner_method(self: AI) -> None:
+    def inner_method() -> None:
+        self = method.__self__
         if any((indicator(0) is None) for indicator in self.pre_requisites):
             self.set_value(self._default_value)
         else:
-            method(self)
+            method()
 
     return inner_method
 
@@ -289,12 +290,15 @@ class OperationIndicator(AbstractIndicator[T]):
         self,
         *pre_requisites: AbstractIndicator,
         operation: Callable[..., T],
+        safe_none: bool = True,
         **kwargs,
     ) -> None:
         super().__init__(*pre_requisites, **kwargs)
         self._operation = operation
+        if safe_none:
+            diniprs = default_if_none_in_pre_requisites
+            self.update_single = diniprs(self.update_single)  # type: ignore
 
-    @default_if_none_in_pre_requisites
     def update_single(self) -> None:
         self.set_value(
             self._operation(
