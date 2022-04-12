@@ -1,20 +1,48 @@
-from typing import TypeVar
+from typing import Callable, overload
 
-T = TypeVar("T")
+from ._types import Numeric, T
 
 
-def summation(*numbers: T, start=0) -> T:
+@overload
+def wrapped_summation() -> Callable[..., Numeric]:
+    ...
+
+
+@overload
+def wrapped_summation(start: T) -> Callable[..., T]:
+    ...
+
+
+def wrapped_summation(start=0):
     """
     Wrapped summation function.
     """
-    return sum(numbers, start=start)
+
+    def inner_summation(*values: T) -> T:
+        return sum(values, start=start)
+
+    return inner_summation
 
 
-def multiply(*numbers: T, start=1) -> T:
+@overload
+def wrapped_multiplication() -> Callable[..., Numeric]:
+    ...
+
+
+@overload
+def wrapped_multiplication(start: T) -> Callable[..., T]:
+    ...
+
+
+def wrapped_multiplication(start=1):
     """
     Wrapped multiplication function.
     """
-    result = start
-    for number in numbers:
-        result *= number
-    return result
+
+    def inner_multiplication(*values: T) -> T:
+        result = start
+        for number in values:
+            result *= number
+        return result
+
+    return inner_multiplication

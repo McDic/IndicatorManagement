@@ -1,5 +1,5 @@
+from .._types import Numeric
 from .base import AbstractIndicator
-from .extra_types import Numeric
 from .statistical import SimpleMovingAverage, SimpleMovingVariance
 
 

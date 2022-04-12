@@ -1,54 +1,43 @@
-from math import cos, e, log, sin, tan
-from typing import cast
+from math import cos as _cos
+from math import log as _log
+from math import sin as _sin
+from math import tan as _tan
 
-from .base import AbstractNumericOperationIndicator, N_or_AIN
-from .extra_types import NumericOperationProtocol
+from .._types import Numeric
+from .base import AbstractIndicator, OperationIndicator, indicatorized_arguments
 
 
-class SineIndicator(AbstractNumericOperationIndicator):
+@indicatorized_arguments
+def sin(indicator: AbstractIndicator[Numeric], **kwargs) -> OperationIndicator:
     """
     Sine of indicator.
     """
-
-    def __init__(self, indicator: N_or_AIN, **kwargs) -> None:
-        super().__init__(
-            indicator, numeric_func=cast(NumericOperationProtocol, sin), **kwargs
-        )
+    return OperationIndicator(indicator, operation=_sin, **kwargs)
 
 
-class CosineIndicator(AbstractNumericOperationIndicator):
+@indicatorized_arguments
+def cos(indicator: AbstractIndicator[Numeric], **kwargs) -> OperationIndicator:
     """
     Cosine of indicator.
     """
-
-    def __init__(self, indicator: N_or_AIN, **kwargs) -> None:
-        super().__init__(
-            indicator, numeric_func=cast(NumericOperationProtocol, cos), **kwargs
-        )
+    return OperationIndicator(indicator, operation=_cos, **kwargs)
 
 
-class TangentIndicator(AbstractNumericOperationIndicator):
+@indicatorized_arguments
+def tan(indicator: AbstractIndicator[Numeric], **kwargs) -> OperationIndicator:
     """
     Tangent of indicator.
     """
-
-    def __init__(self, indicator: N_or_AIN, **kwargs) -> None:
-        super().__init__(
-            indicator, numeric_func=cast(NumericOperationProtocol, tan), **kwargs
-        )
+    return OperationIndicator(indicator, operation=_tan, **kwargs)
 
 
-class LogarithmIndicator(AbstractNumericOperationIndicator):
+@indicatorized_arguments
+def log(
+    indicator_up: AbstractIndicator[Numeric],
+    indicator_base: AbstractIndicator[Numeric],
+    **kwargs
+) -> OperationIndicator:
     """
     Logarithm of indicator.
     """
-
-    def __init__(
-        self, indicator_x: N_or_AIN, indicator_base: N_or_AIN = e, **kwargs
-    ) -> None:
-        super().__init__(
-            indicator_x,
-            indicator_base,
-            numeric_func=cast(NumericOperationProtocol, log),
-            **kwargs
-        )
+    return OperationIndicator(indicator_up, indicator_base, operation=_log, **kwargs)

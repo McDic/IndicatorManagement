@@ -1,9 +1,9 @@
+from .._types import Numeric
 from .base import (
     AbstractHistoryTrackingIndicator,
     AbstractIndicator,
     AbstractStatisticTrackingIndicator,
 )
-from .extra_types import Numeric
 
 
 class SimpleMovingAverage(AbstractHistoryTrackingIndicator[Numeric]):

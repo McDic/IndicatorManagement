@@ -1,19 +1,21 @@
 import statistics
 import unittest
-from math import cos, sin, tan
+from math import cos as raw_cos
+from math import sin as raw_sin
+from math import tan as raw_tan
 from typing import Iterable
 
 from src.indicator_management import (
-    CosineIndicator,
     RawSeriesIndicator,
     SimpleHistoricalStats,
-    SimpleMax,
-    SimpleMin,
     SimpleMovingAverage,
-    SineIndicator,
-    SummationIndicator,
-    TangentIndicator,
+    cos,
     generate_sync,
+    maximum,
+    minimum,
+    sin,
+    summation,
+    tan,
 )
 
 
@@ -39,7 +41,7 @@ class IndicatorTestCase(unittest.TestCase):
         i3 = i1 * i2
         i4 = -raw_indicator
         i5 = 1 / i4
-        i6 = SummationIndicator(i1, i2, i3, i4)
+        i6 = summation(i1, i2, i3, i4, start=0)
         i7 = i3**0.5
         generator = generate_sync(i1=i1, i2=i2, i3=i3, i4=i4, i5=i5, i6=i6, i7=i7)
 
@@ -91,15 +93,15 @@ class IndicatorTestCase(unittest.TestCase):
             [1, 2, 3, 4, 5]
         )
 
-        i_sin = SineIndicator(raw_indicator)
-        i_cos = CosineIndicator(raw_indicator)
-        i_tan = TangentIndicator(raw_indicator)
+        i_sin = sin(raw_indicator)
+        i_cos = cos(raw_indicator)
+        i_tan = tan(raw_indicator)
         for raw_value, obj in zip(
             raw_values, generate_sync(s=i_sin, c=i_cos, t=i_tan), strict=True
         ):
-            self.assertAlmostEqual(sin(raw_value), obj["s"])
-            self.assertAlmostEqual(cos(raw_value), obj["c"])
-            self.assertAlmostEqual(tan(raw_value), obj["t"])
+            self.assertAlmostEqual(raw_sin(raw_value), obj["s"])
+            self.assertAlmostEqual(raw_cos(raw_value), obj["c"])
+            self.assertAlmostEqual(raw_tan(raw_value), obj["t"])
 
     def test_historial_stats(self) -> None:
         raw_values, raw_indicator = self.create_new_raw_series_and_indicator(
@@ -130,8 +132,8 @@ class IndicatorTestCase(unittest.TestCase):
             [3, 2, 3, 1, 2, 1]
         )
 
-        min_indicator = SimpleMin(raw_indicator1, raw_indicator2, raw_indicator3)
-        max_indicator = SimpleMax(raw_indicator1, raw_indicator2, raw_indicator3)
+        min_indicator = minimum(raw_indicator1, raw_indicator2, raw_indicator3)
+        max_indicator = maximum(raw_indicator1, raw_indicator2, raw_indicator3)
         for v1, v2, v3, obj in zip(
             raw_values1,
             raw_values2,
