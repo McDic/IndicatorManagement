@@ -43,3 +43,7 @@ Please have a look at `examples` folder.
 - Implement comparison operators for indicators
 - Implement more financial indicators including MACD, RSI, etc
 - Implement matplotlib integration
+
+# Warning
+
+This library is still under pre-alpha development, and API will be frequently changed.
