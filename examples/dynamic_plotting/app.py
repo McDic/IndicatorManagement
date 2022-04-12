@@ -19,9 +19,9 @@ from indicator_management.indicators import (
     AbstractIndicator,
     RawSeriesIndicator,
     SimpleHistoricalStats,
-    SimpleMax,
-    SimpleMin,
     SimpleMovingAverage,
+    maximum,
+    minimum,
 )
 from indicator_management.orchestration import generate_sync
 
@@ -52,10 +52,10 @@ def main(maxlen: int = 200):
     indicator_sma60 = SimpleMovingAverage(indicator_close_price, 60)
 
     indicator_minimum = SimpleHistoricalStats(
-        SimpleMin(indicator_close_price, indicator_sma20, indicator_sma60), maxlen
+        minimum(indicator_close_price, indicator_sma20, indicator_sma60), maxlen
     )["min"]
     indicator_maximum = SimpleHistoricalStats(
-        SimpleMax(indicator_close_price, indicator_sma20, indicator_sma60), maxlen
+        maximum(indicator_close_price, indicator_sma20, indicator_sma60), maxlen
     )["max"]
 
     fig, ax = plt.subplots(1, 1)
@@ -93,7 +93,6 @@ def main(maxlen: int = 200):
         line_sma60.set_data(data_timestamp, data_sma60)
 
         fig.autofmt_xdate()
-        ax.figure.canvas.draw()
         return line_close, line_sma20, line_sma60
 
     ax.legend(loc="upper left")
@@ -102,7 +101,7 @@ def main(maxlen: int = 200):
         update,
         frames=generator,
         interval=50,
-        blit=True,
+        blit=False,
         repeat=False,
         save_count=300,
     )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
+from functools import wraps
 from numbers import Number
 from typing import (
     Any,
@@ -38,6 +39,7 @@ def indicatorized_arguments(func: Callable[..., T]) -> IndicatorOperationProtoco
     will be changed into `ConstantIndicator`.
     """
 
+    @wraps(func)
     def inner_function(
         *indicator_or_numbers: Union[AbstractIndicator, Numeric], **kwargs
     ) -> T:
