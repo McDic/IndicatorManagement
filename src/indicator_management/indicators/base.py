@@ -292,7 +292,7 @@ class OperationIndicator(AbstractIndicator[T]):
     def __init__(
         self,
         *pre_requisites: AbstractIndicator,
-        operation: Callable[..., T],
+        operation: Callable[..., Optional[T]],
         safe_none: bool = True,
         **kwargs,
     ) -> None:
