@@ -272,10 +272,13 @@ class ConstantIndicator(AbstractIndicator[T]):
     """
 
     def __init__(self, constant: T) -> None:
-        super().__init__(default_value=constant)
+        super().__init__(default_value=constant, history_length=0)
 
     def update_single(self) -> None:
-        self.set_value(self._default_value)
+        pass
+
+    def __call__(self, index: int) -> Optional[T]:
+        return self._default_value
 
 
 N_or_AIN = Union[Numeric, AbstractIndicator[Numeric]]
