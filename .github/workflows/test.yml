@@ -30,7 +30,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements-dependencies.txt ]; then pip install -r requirements-dependencies.txt; fi
-      - name: Execute unittest
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements-test.txt ]; then pip install -r requirements-test.txt; fi
+      - name: Run coverage with unittest
         run: |
-          python -m unittest
+          coverage run -m unittest
+          coverage report --skip-empty --fail-under=80 --precision=1
