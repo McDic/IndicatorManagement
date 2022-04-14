@@ -17,8 +17,6 @@ from typing import (
     Union,
 )
 
-from sortedcontainers import SortedList
-
 from .._types import BoundMethod, Numeric, T
 from ..utils import wrapped_multiplication, wrapped_summation
 
@@ -386,64 +384,31 @@ def index_access(
 class AbstractHistoryTrackingIndicator(AbstractIndicator[T]):
     """
     Abstract base of all history-tracking indicators.
-    This indicator also tracks number of `None`s in tracking history.
     """
 
-    def __init__(self, indicator: AbstractIndicator, length: int, **kwargs) -> None:
-        self._tracking_length: int = length
-        indicator.resize_history(self._tracking_length, increase_only=True)
-        super().__init__(indicator, history_length=self._tracking_length, **kwargs)
-        self._removed_value: Optional[Any] = indicator(self._tracking_length - 1)
-        self._none_count: int = sum(
-            1 for i in range(self._tracking_length) if indicator(i) is None
-        )
+    def __init__(
+        self, *indicators: AbstractIndicator, tracking_lengths: Iterable[int], **kwargs
+    ) -> None:
+        super().__init__(*indicators, **kwargs)
+
+        self._tracking_lengths: tuple[int, ...] = tuple(tracking_lengths)
+        for indicator, length in zip(indicators, self._tracking_lengths, strict=True):
+            if length <= 0:
+                raise ValueError("Non-positive length %d given" % (length,))
+            indicator.resize_history(length + 1, increase_only=True)
+
+    def remove_tail(self) -> None:
+        """
+        Perform action related to removal of old values.
+        """
+        raise NotImplementedError
+
+    def add_head(self) -> None:
+        """
+        Perform action related to addition of new values.
+        """
+        raise NotImplementedError
 
     def update_single(self) -> None:
-        self.update_single_before_history_shift()
-        if self._removed_value is None:
-            self._none_count -= 1
-        self._removed_value = self.pre_requisites[0](self._tracking_length - 1)
-        if self.pre_requisites[0](0) is None:
-            self._none_count += 1
-        self.update_single_after_history_shift()
-
-    def update_single_before_history_shift(self) -> None:
-        """
-        The first phase of `self.update_single`, which exists for update
-        before `self._removed_value` is changed. You should focus on
-        some destructive action on removing `self._removed_value` for
-        this indicator's value state.
-        """
-        raise NotImplementedError
-
-    def update_single_after_history_shift(self) -> None:
-        """
-        The last phase of `self.update_single`, which exists for update
-        after `self._removed_value` is changed. You should focus on
-        some constructive action on adding `self.pre_requisites[0](0)`
-        for this indicator's value state.
-        """
-        raise NotImplementedError
-
-
-class AbstractStatisticTrackingIndicator(AbstractHistoryTrackingIndicator[T]):
-    """
-    Abstract base of all statistic-tracking indicators.
-    The reason why statistic is saved in child class
-    while history is saved in parent class is, otherwise
-    statistic is not reliable when the older value exists.
-    """
-
-    def __init__(self, indicator: AbstractIndicator, length: int, **kwargs) -> None:
-        super().__init__(indicator, length, **kwargs)
-        self.indicator_statistics: SortedList[T] = SortedList()
-
-    def update_single_before_history_shift(self) -> None:
-        value = self._removed_value
-        if value is not None:
-            self.indicator_statistics.remove(value)
-
-    def update_single_after_history_shift(self) -> None:
-        value = self.pre_requisites[0](0)
-        if value is not None:
-            self.indicator_statistics.add(value)
+        self.remove_tail()
+        self.add_head()
