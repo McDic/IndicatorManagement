@@ -9,6 +9,7 @@ from src.indicator_management import (
     RawSeriesIndicator,
     SimpleHistoricalStats,
     SimpleMovingAverage,
+    SimpleMovingVariance,
     cos,
     generate_sync,
     maximum,
@@ -71,6 +72,21 @@ class IndicatorTestCase(unittest.TestCase):
         self.assertAlmostEqual(next(sma3_values), 26 / 3)
         self.assertAlmostEqual(next(sma3_values), 21 / 2)
         self.assertAlmostEqual(next(sma3_values), 17)
+
+    def test_simple_moving_variance(self) -> None:
+        _, raw_indicator = self.create_new_raw_series_and_indicator(
+            [2, 3, 5, 8, 13, None, 21]
+        )
+        smv3 = SimpleMovingVariance(raw_indicator, 3)
+        smv3_values = (obj["sma3"] for obj in generate_sync(sma3=smv3))
+
+        self.assertAlmostEqual(next(smv3_values), statistics.pvariance([2]))
+        self.assertAlmostEqual(next(smv3_values), statistics.pvariance([2, 3]))
+        self.assertAlmostEqual(next(smv3_values), statistics.pvariance([2, 3, 5]))
+        self.assertAlmostEqual(next(smv3_values), statistics.pvariance([3, 5, 8]))
+        self.assertAlmostEqual(next(smv3_values), statistics.pvariance([5, 8, 13]))
+        self.assertAlmostEqual(next(smv3_values), statistics.pvariance([8, 13]))
+        self.assertAlmostEqual(next(smv3_values), statistics.pvariance([13, 21]))
 
     def test_trash_indicators(self) -> None:
         raw_values, raw_indicator = self.create_new_raw_series_and_indicator(
