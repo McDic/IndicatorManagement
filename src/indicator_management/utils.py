@@ -1,6 +1,6 @@
 from typing import Callable, overload
 
-from ._types import Numeric, T
+from ._types import Comparable, Numeric, T
 
 
 @overload
@@ -46,3 +46,26 @@ def wrapped_multiplication(start=1):
         return result
 
     return inner_multiplication
+
+
+def wrapped_chained_comparison(
+    comparison_func: Callable[[Comparable, Comparable], bool]
+):
+    """
+    Wrapped chained comparison.
+    """
+
+    def chained_comparison(*values: Comparable) -> bool:
+        """
+        Return `values[0] < values[1] < ... < values[-1]`.
+        """
+        current = values[0]
+        for i in range(1, len(values)):
+            if comparison_func(current, values[i]):
+                current = values[i]
+            else:
+                return False
+        else:
+            return True
+
+    return chained_comparison
