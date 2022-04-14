@@ -12,6 +12,10 @@ from src.indicator_management import (
     SimpleMovingVariance,
     cos,
     generate_sync,
+    greater,
+    greater_or_equal,
+    less,
+    less_or_equal,
     maximum,
     minimum,
     sin,
@@ -159,6 +163,34 @@ class IndicatorTestCase(unittest.TestCase):
         ):
             self.assertEqual(min(v1, v2, v3), obj["min"])
             self.assertEqual(max(v1, v2, v3), obj["max"])
+
+    def test_simple_comparisons(self) -> None:
+        raw_values1, raw_indicator1 = self.create_new_raw_series_and_indicator(
+            [1, 1, 1, 2, 3]
+        )
+        raw_values2, raw_indicator2 = self.create_new_raw_series_and_indicator(
+            [1, 1, 2, 1, 2]
+        )
+        raw_values3, raw_indicator3 = self.create_new_raw_series_and_indicator(
+            [1, 2, 3, 1, 1]
+        )
+
+        indicator_lt = less(raw_indicator1, raw_indicator2, raw_indicator3)
+        indicator_le = less_or_equal(raw_indicator1, raw_indicator2, raw_indicator3)
+        indicator_gt = greater(raw_indicator1, raw_indicator2, raw_indicator3)
+        indicator_ge = greater_or_equal(raw_indicator1, raw_indicator2, raw_indicator3)
+        for v1, v2, v3, obj in zip(
+            raw_values1,
+            raw_values2,
+            raw_values3,
+            generate_sync(
+                lt=indicator_lt, le=indicator_le, gt=indicator_gt, ge=indicator_ge
+            ),
+        ):
+            self.assertEqual(v1 < v2 < v3, obj["lt"])
+            self.assertEqual(v1 <= v2 <= v3, obj["le"])
+            self.assertEqual(v1 > v2 > v3, obj["gt"])
+            self.assertEqual(v1 >= v2 >= v3, obj["ge"])
 
 
 if __name__ == "__main__":

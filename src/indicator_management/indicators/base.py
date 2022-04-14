@@ -15,10 +15,15 @@ from typing import (
     Protocol,
     TypeVar,
     Union,
+    cast,
 )
 
-from .._types import BoundMethod, Numeric, T
-from ..utils import wrapped_multiplication, wrapped_summation
+from .._types import BoundMethod, ComparisonFunc, Numeric, T
+from ..utils import (
+    wrapped_chained_comparison,
+    wrapped_multiplication,
+    wrapped_summation,
+)
 
 IOPR_co = TypeVar("IOPR_co", covariant=True)
 
@@ -148,6 +153,21 @@ class AbstractIndicator(Generic[T]):
 
     def __rpow__(self, other) -> OperationIndicator:
         return power(other, self)
+
+    # =================================================================================
+    # Comparison operations
+
+    def __lt__(self, other) -> OperationIndicator[bool]:
+        return less(self, other)
+
+    def __le__(self, other) -> OperationIndicator[bool]:
+        return less_or_equal(self, other)
+
+    def __gt__(self, other) -> OperationIndicator[bool]:
+        return greater(self, other)
+
+    def __ge__(self, other) -> OperationIndicator[bool]:
+        return greater_or_equal(self, other)
 
     # =================================================================================
     # Other operations which produces indicators
@@ -367,6 +387,56 @@ def power(
     """
     return OperationIndicator(
         indicator1, indicator2, operation=(lambda x, y: x**y), **kwargs
+    )
+
+
+@indicatorized_arguments
+def less(*indicators: AbstractIndicator, **kwargs) -> OperationIndicator[bool]:
+    """
+    Generates `indicators[0] < indicators[1] < ... < indicators[-1]`.
+    """
+    return OperationIndicator(
+        *indicators,
+        operation=wrapped_chained_comparison(cast(ComparisonFunc, lambda x, y: x < y)),
+        **kwargs,
+    )
+
+
+@indicatorized_arguments
+def less_or_equal(*indicators: AbstractIndicator, **kwargs) -> OperationIndicator[bool]:
+    """
+    Generates `indicators[0] <= indicators[1] <= ... <= indicators[-1]`.
+    """
+    return OperationIndicator(
+        *indicators,
+        operation=wrapped_chained_comparison(cast(ComparisonFunc, lambda x, y: x <= y)),
+        **kwargs,
+    )
+
+
+@indicatorized_arguments
+def greater(*indicators: AbstractIndicator, **kwargs) -> OperationIndicator[bool]:
+    """
+    Generates `indicators[0] > indicators[1] > ... > indicators[-1]`.
+    """
+    return OperationIndicator(
+        *indicators,
+        operation=wrapped_chained_comparison(cast(ComparisonFunc, lambda x, y: x > y)),
+        **kwargs,
+    )
+
+
+@indicatorized_arguments
+def greater_or_equal(
+    *indicators: AbstractIndicator, **kwargs
+) -> OperationIndicator[bool]:
+    """
+    Generates `indicators[0] >= indicators[1] >= ... >= indicators[-1]`.
+    """
+    return OperationIndicator(
+        *indicators,
+        operation=wrapped_chained_comparison(cast(ComparisonFunc, lambda x, y: x >= y)),
+        **kwargs,
     )
 
 
