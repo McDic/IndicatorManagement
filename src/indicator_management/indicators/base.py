@@ -176,13 +176,13 @@ class AbstractIndicator(Generic[T]):
     # Logical operations
 
     def __and__(self, other) -> OperationIndicator:
-        return and_operator(self, other)
+        return and_operator(self, other, safe_none=False)
 
     def __or__(self, other) -> OperationIndicator:
-        return or_operator(self, other)
+        return or_operator(self, other, safe_none=False)
 
     def __xor__(self, other) -> OperationIndicator:
-        return xor_operator(self, other)
+        return xor_operator(self, other, safe_none=False)
 
     # =================================================================================
     # Other operations which produces indicators
@@ -486,7 +486,7 @@ def and_operator(*indicators, **kwargs) -> OperationIndicator:
 @indicatorized_arguments
 def or_operator(*indicators, **kwargs) -> OperationIndicator:
     """
-    Generaters `indicators[0] | indicators[1] | ... | indicators[-1]`.
+    Generates `indicators[0] | indicators[1] | ... | indicators[-1]`.
     """
     return OperationIndicator(
         *indicators,
