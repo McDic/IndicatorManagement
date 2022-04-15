@@ -34,5 +34,5 @@ jobs:
           if [ -f requirements-test.txt ]; then pip install -r requirements-test.txt; fi
       - name: Run coverage with unittest
         run: |
-          coverage run -m unittest
+          coverage run --source=src -m unittest
           coverage report --skip-empty --fail-under=80 --precision=1
