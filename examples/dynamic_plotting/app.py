@@ -112,7 +112,7 @@ def main(maxlen: int = 200):
         interval=50,
         blit=False,
         repeat=False,
-        save_count=300,
+        save_count=200,
     )
     # animation.save(
     #     "example.gif", progress_callback=lambda i, n: print(f"Saving frame {i}/{n}")
