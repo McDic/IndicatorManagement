@@ -173,7 +173,7 @@ class AbstractIndicator(Generic[T]):
         return greater_or_equal(self, other)
 
     # =================================================================================
-    # Boolean and Logical operations
+    # Logical operations
 
     def __and__(self, other) -> OperationIndicator:
         return and_operator(self, other)
@@ -505,6 +505,13 @@ def xor_operator(*indicators, **kwargs) -> OperationIndicator:
         operation=wrapped_chained_general_operation(lambda x, y: x ^ y),
         **kwargs,
     )
+
+
+def booleanize(indicator: AbstractIndicator, **kwargs) -> OperationIndicator:
+    """
+    Generates `bool(indicator)`.
+    """
+    return OperationIndicator(indicator, operation=(lambda x: bool(x)), **kwargs)
 
 
 def index_access(
