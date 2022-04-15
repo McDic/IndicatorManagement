@@ -5,7 +5,8 @@ from math import sin as raw_sin
 from math import tan as raw_tan
 from typing import Iterable
 
-from src.indicator_management import (
+from src.indicator_management import generate_sync
+from src.indicator_management.indicators import (
     AgingIndicator,
     ExponentialMovingAverage,
     RawSeriesIndicator,
@@ -15,7 +16,6 @@ from src.indicator_management import (
     and_keyword,
     booleanize,
     cos,
-    generate_sync,
     greater,
     greater_or_equal,
     less,

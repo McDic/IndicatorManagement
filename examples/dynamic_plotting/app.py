@@ -15,13 +15,13 @@ from typing import Generator, Union
 import matplotlib.animation as pltanim
 import matplotlib.pyplot as plt
 
-from indicator_management import (
+from indicator_management import generate_sync
+from indicator_management.indicators import (
     AbstractIndicator,
     ExponentialMovingAverage,
     RawSeriesIndicator,
     SimpleHistoricalStats,
     SimpleMovingAverage,
-    generate_sync,
     maximum,
     minimum,
 )
