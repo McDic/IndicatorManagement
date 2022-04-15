@@ -16,7 +16,7 @@ from .base import (
     summation,
 )
 from .comparisons import maximum, minimum
-from .financial import bollinger_band
+from .financial import ExponentialMovingAverage, bollinger_band
 from .mathematical import cos, log, sin, tan
 from .statistical import (
     SimpleHistoricalStats,

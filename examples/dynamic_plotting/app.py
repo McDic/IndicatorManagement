@@ -15,15 +15,16 @@ from typing import Generator, Union
 import matplotlib.animation as pltanim
 import matplotlib.pyplot as plt
 
-from indicator_management.indicators import (
+from indicator_management import (
     AbstractIndicator,
+    ExponentialMovingAverage,
     RawSeriesIndicator,
     SimpleHistoricalStats,
     SimpleMovingAverage,
+    generate_sync,
     maximum,
     minimum,
 )
-from indicator_management.orchestration import generate_sync
 
 
 def generate_timestamp_and_price(
@@ -50,24 +51,29 @@ def main(maxlen: int = 200):
     indicator_close_price = indicator_raw_value[1]
     indicator_sma20 = SimpleMovingAverage(indicator_close_price, 20)
     indicator_sma60 = SimpleMovingAverage(indicator_close_price, 60)
+    indicator_ema = ExponentialMovingAverage(indicator_close_price)
 
     indicator_minimum = SimpleHistoricalStats(
-        minimum(indicator_close_price, indicator_sma20, indicator_sma60), maxlen
+        minimum(indicator_close_price, indicator_sma20, indicator_sma60, indicator_ema),
+        maxlen,
     )["min"]
     indicator_maximum = SimpleHistoricalStats(
-        maximum(indicator_close_price, indicator_sma20, indicator_sma60), maxlen
+        maximum(indicator_close_price, indicator_sma20, indicator_sma60, indicator_ema),
+        maxlen,
     )["max"]
 
     fig, ax = plt.subplots(1, 1)
     (line_close,) = ax.plot([], [], "b", label="close")
     (line_sma20,) = ax.plot([], [], "r--", label="sma20")
     (line_sma60,) = ax.plot([], [], "g--", label="sma60")
+    (line_ema,) = ax.plot([], [], "c--", label="ema")
 
     generator = generate_sync(
         timestamp=indicator_timestamp,
         close=indicator_close_price,
         sma20=indicator_sma20,
         sma60=indicator_sma60,
+        ema=indicator_ema,
         global_min=indicator_minimum,
         global_max=indicator_maximum,
     )
@@ -76,12 +82,14 @@ def main(maxlen: int = 200):
     data_close: deque[float] = deque(maxlen=maxlen)
     data_sma20: deque[float] = deque(maxlen=maxlen)
     data_sma60: deque[float] = deque(maxlen=maxlen)
+    data_ema: deque[float] = deque(maxlen=maxlen)
 
     def update(value):
         data_timestamp.append(value["timestamp"])
         data_close.append(value["close"])
         data_sma20.append(value["sma20"])
         data_sma60.append(value["sma60"])
+        data_ema.append(value["ema"])
 
         minimum = value["global_min"]
         maximum = value["global_max"]
@@ -91,9 +99,10 @@ def main(maxlen: int = 200):
         line_close.set_data(data_timestamp, data_close)
         line_sma20.set_data(data_timestamp, data_sma20)
         line_sma60.set_data(data_timestamp, data_sma60)
+        line_ema.set_data(data_timestamp, data_ema)
 
         fig.autofmt_xdate()
-        return line_close, line_sma20, line_sma60
+        return line_close, line_sma20, line_sma60, line_ema
 
     ax.legend(loc="upper left")
     animation = pltanim.FuncAnimation(

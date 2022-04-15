@@ -6,6 +6,7 @@ from math import tan as raw_tan
 from typing import Iterable
 
 from src.indicator_management import (
+    ExponentialMovingAverage,
     RawSeriesIndicator,
     SimpleHistoricalStats,
     SimpleMovingAverage,
@@ -191,6 +192,23 @@ class IndicatorTestCase(unittest.TestCase):
             self.assertEqual(v1 <= v2 <= v3, obj["le"])
             self.assertEqual(v1 > v2 > v3, obj["gt"])
             self.assertEqual(v1 >= v2 >= v3, obj["ge"])
+
+    def test_ema(self):
+        raw_values, raw_indicator = self.create_new_raw_series_and_indicator(range(10))
+        weight: float = 0.5
+        ema_indicator = ExponentialMovingAverage(raw_indicator, forward_weight=weight)
+        generator = generate_sync(ema=ema_indicator)
+
+        emulated_value = 0
+        for i, (raw_value, generated_value) in enumerate(
+            zip(raw_values, generator, strict=True)
+        ):
+            emulated_value = (
+                raw_value
+                if not i
+                else emulated_value * (1 - weight) + raw_value * weight
+            )
+            self.assertAlmostEqual(emulated_value, generated_value["ema"])
 
 
 if __name__ == "__main__":
