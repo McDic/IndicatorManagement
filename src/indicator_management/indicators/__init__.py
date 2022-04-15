@@ -7,6 +7,7 @@ from .base import (
     RawSeriesIndicator,
     and_keyword,
     and_operator,
+    booleanize,
     division,
     greater,
     greater_or_equal,

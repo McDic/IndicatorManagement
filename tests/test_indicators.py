@@ -6,12 +6,14 @@ from math import tan as raw_tan
 from typing import Iterable
 
 from src.indicator_management import (
+    AgingIndicator,
     ExponentialMovingAverage,
     RawSeriesIndicator,
     SimpleHistoricalStats,
     SimpleMovingAverage,
     SimpleMovingVariance,
     and_keyword,
+    booleanize,
     cos,
     generate_sync,
     greater,
@@ -232,6 +234,36 @@ class IndicatorTestCase(unittest.TestCase):
             self.assertEqual(v1 & v2, obj["iand"])
             self.assertEqual(v1 | v2, obj["ior"])
             self.assertAlmostEqual(v1 ^ v2, obj["ixor"])
+
+    def test_booleanize(self):
+        raw_values, raw_indicator = self.create_new_raw_series_and_indicator(
+            [True, False, None, 1, 0, 0.0, -12.34, "abc", ""]
+        )
+        booleanized_safe_none = booleanize(raw_indicator, safe_none=True)
+        booleanized_unsafe_none = booleanize(raw_indicator, safe_none=False)
+        for v, obj in zip(
+            raw_values,
+            generate_sync(
+                bool_safe_none=booleanized_safe_none,
+                bool_unsafe_none=booleanized_unsafe_none,
+            ),
+            strict=True,
+        ):
+            self.assertEqual(bool(v) if v is not None else None, obj["bool_safe_none"])
+            self.assertEqual(bool(v), obj["bool_unsafe_none"])
+
+    def test_aging(self):
+        raw_values, raw_indicator = self.create_new_raw_series_and_indicator(
+            [1, 0.5, -2, 1.2, 3.4, 7.8, -9.6, 5.1]
+        )
+        positive_age = AgingIndicator(raw_indicator > 0)
+        emulated_age = 0
+        for v, obj in zip(raw_values, generate_sync(age=positive_age), strict=True):
+            if v > 0:
+                emulated_age += 1
+            else:
+                emulated_age = 0
+            self.assertEqual(emulated_age, obj["age"])
 
     def test_ema(self):
         raw_values, raw_indicator = self.create_new_raw_series_and_indicator(range(10))
