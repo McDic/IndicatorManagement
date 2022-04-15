@@ -11,6 +11,7 @@ from src.indicator_management import (
     SimpleHistoricalStats,
     SimpleMovingAverage,
     SimpleMovingVariance,
+    and_keyword,
     cos,
     generate_sync,
     greater,
@@ -19,6 +20,7 @@ from src.indicator_management import (
     less_or_equal,
     maximum,
     minimum,
+    or_keyword,
     sin,
     summation,
     tan,
@@ -192,6 +194,44 @@ class IndicatorTestCase(unittest.TestCase):
             self.assertEqual(v1 <= v2 <= v3, obj["le"])
             self.assertEqual(v1 > v2 > v3, obj["gt"])
             self.assertEqual(v1 >= v2 >= v3, obj["ge"])
+
+    def test_keyword_and_or(self):
+        raw_values1, raw_indicator1 = self.create_new_raw_series_and_indicator(
+            [True, True, False, False]
+        )
+        raw_values2, raw_indicator2 = self.create_new_raw_series_and_indicator(
+            [True, False, True, False]
+        )
+        indicator_and = and_keyword(raw_indicator1, raw_indicator2)
+        indicator_or = or_keyword(raw_indicator1, raw_indicator2)
+        for v1, v2, obj in zip(
+            raw_values1,
+            raw_values2,
+            generate_sync(iand=indicator_and, ior=indicator_or),
+            strict=True,
+        ):
+            self.assertEqual(v1 and v2, obj["iand"])
+            self.assertEqual(v1 or v2, obj["ior"])
+
+    def test_operator_and_or_xor(self):
+        raw_values1, raw_indicator1 = self.create_new_raw_series_and_indicator(
+            [1, 1, 1]
+        )
+        raw_values2, raw_indicator2 = self.create_new_raw_series_and_indicator(
+            [0, 1, 2]
+        )
+        indicator_and = raw_indicator1 & raw_indicator2
+        indicator_or = raw_indicator1 | raw_indicator2
+        indicator_xor = raw_indicator1 ^ raw_indicator2
+        for v1, v2, obj in zip(
+            raw_values1,
+            raw_values2,
+            generate_sync(iand=indicator_and, ior=indicator_or, ixor=indicator_xor),
+            strict=True,
+        ):
+            self.assertEqual(v1 & v2, obj["iand"])
+            self.assertEqual(v1 | v2, obj["ior"])
+            self.assertAlmostEqual(v1 ^ v2, obj["ixor"])
 
     def test_ema(self):
         raw_values, raw_indicator = self.create_new_raw_series_and_indicator(range(10))
