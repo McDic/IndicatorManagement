@@ -1,9 +1,13 @@
+from .aging import AgingIndicator
 from .base import (
     AbstractHistoryTrackingIndicator,
     AbstractIndicator,
     AsyncRawSeriesIndicator,
     ConstantIndicator,
     RawSeriesIndicator,
+    and_keyword,
+    and_operator,
+    booleanize,
     division,
     greater,
     greater_or_equal,
@@ -11,9 +15,12 @@ from .base import (
     less,
     less_or_equal,
     multiplication,
+    or_keyword,
+    or_operator,
     power,
     subtraction,
     summation,
+    xor_operator,
 )
 from .comparisons import maximum, minimum
 from .financial import ExponentialMovingAverage, bollinger_band
