@@ -1,3 +1,4 @@
+from .aging import AgingIndicator
 from .base import (
     AbstractHistoryTrackingIndicator,
     AbstractIndicator,
