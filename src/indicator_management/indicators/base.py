@@ -20,7 +20,10 @@ from typing import (
 
 from .._types import BoundMethod, ComparisonFunc, Numeric, T
 from ..utils import (
+    chained_keyword_and,
+    chained_keyword_or,
     wrapped_chained_comparison,
+    wrapped_chained_general_operation,
     wrapped_multiplication,
     wrapped_summation,
 )
@@ -168,6 +171,18 @@ class AbstractIndicator(Generic[T]):
 
     def __ge__(self, other) -> OperationIndicator[bool]:
         return greater_or_equal(self, other)
+
+    # =================================================================================
+    # Boolean and Logical operations
+
+    def __and__(self, other) -> OperationIndicator:
+        return and_operator(self, other)
+
+    def __or__(self, other) -> OperationIndicator:
+        return or_operator(self, other)
+
+    def __xor__(self, other) -> OperationIndicator:
+        return xor_operator(self, other)
 
     # =================================================================================
     # Other operations which produces indicators
@@ -436,6 +451,58 @@ def greater_or_equal(
     return OperationIndicator(
         *indicators,
         operation=wrapped_chained_comparison(cast(ComparisonFunc, lambda x, y: x >= y)),
+        **kwargs,
+    )
+
+
+@indicatorized_arguments
+def and_keyword(*indicators, **kwargs) -> OperationIndicator[bool]:
+    """
+    Generates `indicators[0] and indicators[1] and ... and indicators[-1]`.
+    """
+    return OperationIndicator(*indicators, operation=chained_keyword_and, **kwargs)
+
+
+@indicatorized_arguments
+def or_keyword(*indicators, **kwargs) -> OperationIndicator[bool]:
+    """
+    Generates `indicators[0] or indicators[1] or ... or indicators[-1]`.
+    """
+    return OperationIndicator(*indicators, operation=chained_keyword_or, **kwargs)
+
+
+@indicatorized_arguments
+def and_operator(*indicators, **kwargs) -> OperationIndicator:
+    """
+    Generates `indicators[0] & indicators[1] & ... & indicators[-1]`.
+    """
+    return OperationIndicator(
+        *indicators,
+        operation=wrapped_chained_general_operation(lambda x, y: x & y),
+        **kwargs,
+    )
+
+
+@indicatorized_arguments
+def or_operator(*indicators, **kwargs) -> OperationIndicator:
+    """
+    Generaters `indicators[0] | indicators[1] | ... | indicators[-1]`.
+    """
+    return OperationIndicator(
+        *indicators,
+        operation=wrapped_chained_general_operation(lambda x, y: x | y),
+        **kwargs,
+    )
+
+
+@indicatorized_arguments
+def xor_operator(*indicators, **kwargs) -> OperationIndicator:
+    """
+    Generaters `indicators[0] ^ indicators[1] ^ ... ^ indicators[-1]`. (xor operator)
+    """
+    return OperationIndicator(
+        *indicators,
+        operation=wrapped_chained_general_operation(lambda x, y: x ^ y),
         **kwargs,
     )
 

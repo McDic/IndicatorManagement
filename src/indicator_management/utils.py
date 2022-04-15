@@ -1,4 +1,4 @@
-from typing import Callable, overload
+from typing import Any, Callable, overload
 
 from ._types import Comparable, Numeric, T
 
@@ -69,3 +69,43 @@ def wrapped_chained_comparison(
             return True
 
     return chained_comparison
+
+
+def chained_keyword_and(*values: Any) -> Any:
+    """
+    Return `values[0] and values[1] and ... and values[-1]`.
+    """
+    current = values[0]
+    for i in range(1, len(values)):
+        if not current:
+            break
+        current = current and values[i]
+    return current
+
+
+def chained_keyword_or(*values: Any) -> Any:
+    """
+    Return `values[0] or values[1] or ... or values[-1]`.
+    """
+    current = values[0]
+    for i in range(1, len(values)):
+        if current:
+            break
+        current = current or values[i]
+    return current
+
+
+def wrapped_chained_general_operation(
+    binary_func: Callable[[Any, Any], Any]
+) -> Callable[..., Any]:
+    """
+    Wrapped chained general operation.
+    """
+
+    def chained_general_operation(*values: Any) -> Any:
+        current = values[0]
+        for i in range(1, len(values)):
+            current = binary_func(current, values[i])
+        return current
+
+    return chained_general_operation
