@@ -11,7 +11,8 @@ import random
 
 import matplotlib.pyplot as plt
 
-from indicator_management import AbstractIndicator, RawSeriesIndicator, generate_sync
+from indicator_management import generate_sync
+from indicator_management.indicators import AbstractIndicator, RawSeriesIndicator
 
 
 def main():

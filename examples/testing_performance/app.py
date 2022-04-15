@@ -3,9 +3,9 @@ import os
 import pstats
 from random import random
 
-from indicator_management import (
+from indicator_management import generate_sync
+from indicator_management.indicators import (
     RawSeriesIndicator,
-    generate_sync,
     multiplication,
     summation,
 )
