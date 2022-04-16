@@ -68,9 +68,9 @@ async def generate_async(
                                 running_task.cancel()
                             raise exc
 
-                yield {
-                    indicator_name: indicator(0)
-                    for indicator_name, indicator in indicators.items()
-                }
+            yield {
+                indicator_name: indicator(0)
+                for indicator_name, indicator in indicators.items()
+            }
     except (StopIteration, StopAsyncIteration):
         pass
