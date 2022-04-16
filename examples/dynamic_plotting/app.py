@@ -42,7 +42,7 @@ def main():
     indicator_sma60 = SimpleMovingAverage(indicator_close_price, 60)
     indicator_ema = ExponentialMovingAverage(indicator_close_price)
 
-    indicator_bb_upper, indicator_bb_mid, indicator_bb_lower = bollinger_band(
+    indicator_bb_upper, _, indicator_bb_lower = bollinger_band(
         indicator_close_price, 20
     )
 
@@ -55,7 +55,7 @@ def main():
     data_animator.add_yaxes(
         close=indicator_close_price, upper=indicator_bb_upper, lower=indicator_bb_lower
     )
-    data_animator.show()
+    data_animator.show(interval=7, blit=True)
 
 
 if __name__ == "__main__":

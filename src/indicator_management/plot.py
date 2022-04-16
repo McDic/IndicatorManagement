@@ -87,7 +87,7 @@ class DataAnimator:
             self._register_indicator(indicator, name)
             self._names_by_axes_id[-1].add(name)
 
-    def _prepare_axes_and_lines(self):
+    def _prepare_axes_and_lines(self, blit: bool):
         """
         Prepare `Axes`s and `Line2D`s before showing animation.
         """
@@ -97,10 +97,11 @@ class DataAnimator:
                 "Perhaps you called `update` without adding y-axes?"
             )
         assert not self._axes
-        self._axes = [
-            self._figure.add_subplot(self._axes_nonce, 1, i + 1)
-            for i in range(self._axes_nonce)
-        ]
+        self._axes = [self._figure.add_subplot(self._axes_nonce, 1, 1)]
+        self._axes.extend(
+            self._figure.add_subplot(self._axes_nonce, 1, i + 1, sharex=self._axes[0])
+            for i in range(1, self._axes_nonce)
+        )
 
         assert not self._lines
         for i, names in enumerate(self._names_by_axes_id):
@@ -111,6 +112,12 @@ class DataAnimator:
 
         for ax in self._axes:
             ax.legend(loc="upper left")
+            if blit:
+                ax.xaxis.set_animated(True)
+                ax.yaxis.set_animated(True)
+
+        self._figure.tight_layout()
+        self._figure.subplots_adjust(hspace=0)
 
     def update(self, value: dict[str, Any]):
         """
@@ -123,35 +130,40 @@ class DataAnimator:
             for line in self._lines[name]:
                 line.set_data(self._linedata[self._name_x_axis], self._linedata[name])
 
+        self._axes[0].set_xlim(
+            self._linedata[self._name_x_axis][0],
+            self._linedata[self._name_x_axis][-1],
+        )
+
         for ax in self._axes:
-            ax.set_xlim(
-                self._linedata[self._name_x_axis][0],
-                self._linedata[self._name_x_axis][-1],
-            )
             ax.relim()
-            ax.autoscale_view(True, True, True)
+            ax.autoscale(True, "y")
 
         if isinstance(self._linedata[self._name_x_axis][0], datetime):
             self._figure.autofmt_xdate()
 
+        return list(line for lines in self._lines.values() for line in lines)
+
     def show(
         self,
-        interval: int = 50,
+        interval: int = 25,
         save_count: int = 200,
         save_path: Optional[str] = None,
+        blit: bool = False,
     ) -> None:
         """
         Prepare everything and show. This method should be called at the last.
         """
-        self._prepare_axes_and_lines()
+        self._prepare_axes_and_lines(blit=blit)
         self._func_animation = pltanim.FuncAnimation(
             self._figure,
             self.update,
             frames=generate_sync(**self._indicators_by_name),
             interval=interval,
-            blit=False,
+            blit=blit,
             repeat=False,
             save_count=save_count,
+            cache_frame_data=False,
         )
         if save_path:
             self._func_animation.save(
@@ -160,5 +172,4 @@ class DataAnimator:
                     lambda i, n: print("Saving frame %03d/%03d" % (i, n))
                 ),
             )
-        plt.tight_layout()
         plt.show()
