@@ -1,6 +1,17 @@
+from math import inf
+from typing import cast
+
 from .._types import Numeric
-from .base import AbstractIndicator
+from .base import (
+    AbstractIndicator,
+    OperationIndicator,
+    division,
+    multiplication,
+    subtraction,
+    summation,
+)
 from .statistical import SimpleMovingAverage, SimpleMovingVariance
+from .utils import PrevDifference, simple_filter
 
 
 def bollinger_band(
@@ -42,3 +53,52 @@ class ExponentialMovingAverage(AbstractIndicator[Numeric]):
                 prev_value * (1 - self._forward_weight)  # type: ignore
                 + value * self._forward_weight
             )
+
+
+def macd(
+    indicator: AbstractIndicator[Numeric], short_period: int, long_period: int, **kwargs
+) -> OperationIndicator[Numeric]:
+    """
+    MACD indicator. `MACD(short, long) = SMA(short) - SMA(long)`.
+    """
+    return subtraction(
+        SimpleMovingAverage(indicator, short_period),
+        SimpleMovingAverage(indicator, long_period),
+        **kwargs
+    )
+
+
+def rsi(
+    indicator: AbstractIndicator[Numeric], period: int = 14, **kwargs
+) -> OperationIndicator[Numeric]:
+    """
+    Relative Strength Index.
+    See [here](https://www.investopedia.com/terms/r/rsi.asp) for details.
+    """
+    prev_difference = PrevDifference(indicator)
+    gain_filter = simple_filter(prev_difference, 0, (lambda pnl: pnl > 0), **kwargs)
+    loss_filter = simple_filter(prev_difference, 0, (lambda pnl: pnl < 0), **kwargs)
+    gain_ema = ExponentialMovingAverage(gain_filter, 1.0 / period, **kwargs)
+    loss_ema = ExponentialMovingAverage(loss_filter, 1.0 / period, **kwargs)
+    return cast(
+        OperationIndicator[Numeric],
+        multiplication(
+            100,
+            subtraction(
+                1,
+                division(
+                    1,
+                    summation(
+                        1,
+                        division(gain_ema, loss_ema, default_value=inf, **kwargs),
+                        start=0,
+                        **kwargs
+                    ),
+                    **kwargs
+                ),
+                **kwargs
+            ),
+            start=1,
+            **kwargs
+        ),
+    )
