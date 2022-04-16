@@ -19,6 +19,7 @@ from typing import (
 )
 
 from .._types import BoundMethod, ComparisonFunc, Numeric, T
+from ..errors import IndicatorManagementError
 from ..utils import (
     chained_keyword_and,
     chained_keyword_or,
@@ -68,6 +69,7 @@ class AbstractIndicator(Generic[T]):
     """
 
     global_nonce: int = 0
+    __is_sync__: bool = True
 
     def __init__(
         self,
@@ -227,13 +229,23 @@ class AbstractIndicator(Generic[T]):
         """
         Asynchronously update current indicator.
         """
-        self.update_single()
+        if self.__is_sync__:
+            raise IndicatorManagementError(
+                "update_single_async should not be called from sync indicator"
+            )
+        else:
+            raise NotImplementedError
 
     def update_single(self) -> None:
         """
         Calculate and update new indicator value based on given `sources`.
         """
-        raise NotImplementedError
+        if self.__is_sync__:
+            raise NotImplementedError
+        else:
+            raise IndicatorManagementError(
+                "update_single should not be called from async indicator"
+            )
 
 
 AI = TypeVar("AI", bound=AbstractIndicator)
@@ -268,12 +280,6 @@ class RawSeriesIndicator(AbstractIndicator[T]):
         super().__init__(default_value=None, **kwargs)
         self._raw_values: Iterator[Optional[T]] = iter(raw_values)
 
-    async def update_single_async(self) -> None:
-        try:
-            self.update_single()
-        except StopIteration as exc:
-            raise StopAsyncIteration(*exc.args).with_traceback(exc.__traceback__)
-
     def update_single(self) -> None:
         self.set_value(next(self._raw_values))
 
@@ -283,6 +289,8 @@ class AsyncRawSeriesIndicator(AbstractIndicator[T]):
     Represents an indicator which is updated by
     asynchronous raw value stream.
     """
+
+    __is_sync__: bool = False
 
     def __init__(
         self,
