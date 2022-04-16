@@ -68,6 +68,7 @@ class AbstractIndicator(Generic[T]):
     """
 
     global_nonce: int = 0
+    __is_sync__: bool = True
 
     def __init__(
         self,
@@ -283,6 +284,8 @@ class AsyncRawSeriesIndicator(AbstractIndicator[T]):
     Represents an indicator which is updated by
     asynchronous raw value stream.
     """
+
+    __is_sync__: bool = False
 
     def __init__(
         self,
