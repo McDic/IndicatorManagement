@@ -396,8 +396,12 @@ def division(
     """
     Division of two indicators.
     """
+    default_value = kwargs.get("default_value")
     return OperationIndicator(
-        indicator1, indicator2, operation=(lambda x, y: x / y if y else None), **kwargs
+        indicator1,
+        indicator2,
+        operation=(lambda x, y: x / y if y else default_value),
+        **kwargs,
     )
 
 
