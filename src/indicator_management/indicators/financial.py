@@ -68,12 +68,27 @@ def macd(
     indicator: AbstractIndicator[Numeric], short_period: int, long_period: int, **kwargs
 ) -> OperationIndicator[Numeric]:
     """
-    MACD indicator. `MACD(short, long) = SMA(short) - SMA(long)`.
+    Moving Average Convergence Divergence.
+    `MACD(short, long) = SMA(short) - SMA(long)`.
     """
     return subtraction(
         SimpleMovingAverage(indicator, short_period),
         SimpleMovingAverage(indicator, long_period),
         **kwargs,
+    )
+
+
+def ppo(
+    indicator: AbstractIndicator[Numeric], short_period: int, long_period: int, **kwargs
+) -> OperationIndicator[Numeric]:
+    """
+    Percent Price Oscillator.
+    See [here](https://www.investopedia.com/terms/p/ppo.asp) for details.
+    """
+    short = SimpleMovingAverage(indicator, short_period, **kwargs)
+    long = SimpleMovingAverage(indicator, long_period, **kwargs)
+    return OperationIndicator(
+        short, long, operation=(lambda s, l: (s - l) / l * 100), **kwargs
     )
 
 
