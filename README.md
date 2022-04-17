@@ -55,7 +55,7 @@ As you can see, you can mix any operations or indicators to generate your own in
 
 ## Plot your own indicators with convenience
 
-[This code](https://github.com/McDic/IndicatorManagement/blob/master/examples/dynamic_plotting/app2.py) will plot following graph;
+[This code](https://github.com/McDic/IndicatorManagement/blob/master/examples/dynamic_plotting/app.py) will plot following graph;
 
 ![dynamic_plotting](https://i.imgur.com/j2wuuDb.gif)
 

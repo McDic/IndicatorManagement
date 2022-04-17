@@ -55,7 +55,7 @@ def main():
     data_animator.add_yaxes(
         close=indicator_close_price, upper=indicator_bb_upper, lower=indicator_bb_lower
     )
-    data_animator.show(interval=7, blit=True)
+    data_animator.show(interval=7, blit=False)
 
 
 if __name__ == "__main__":
