@@ -3,12 +3,13 @@ import unittest
 from math import cos as raw_cos
 from math import sin as raw_sin
 from math import tan as raw_tan
-from typing import Iterable
+from typing import Any, Callable, Iterable, cast
 
 from src.indicator_management import generate_sync
 from src.indicator_management.indicators import (
     AgingIndicator,
     ExponentialMovingAverage,
+    PrevDifference,
     RawSeriesIndicator,
     SimpleHistoricalStats,
     SimpleMovingAverage,
@@ -23,6 +24,7 @@ from src.indicator_management.indicators import (
     maximum,
     minimum,
     or_keyword,
+    simple_filter,
     sin,
     summation,
     tan,
@@ -281,6 +283,23 @@ class IndicatorTestCase(unittest.TestCase):
                 else emulated_value * (1 - weight) + raw_value * weight
             )
             self.assertAlmostEqual(emulated_value, generated_value["ema"])
+
+    def test_simple_filter(self):
+        raw_values, raw_indicator = self.create_new_raw_series_and_indicator(range(4))
+        f = cast(Callable[[Any], bool], lambda x: x % 2 == 0)
+        filter_indicator = simple_filter(raw_indicator, False, f, safe_none=False)
+        for v, obj in zip(
+            raw_values, generate_sync(filter=filter_indicator), strict=True
+        ):
+            self.assertEqual(v if f(v) else False, obj["filter"])
+
+    def test_prev_difference(self):
+        _, raw_indicator = self.create_new_raw_series_and_indicator(
+            2**i for i in range(10)
+        )
+        prev_difference = PrevDifference(raw_indicator)
+        for i, obj in enumerate(generate_sync(pd=prev_difference)):
+            self.assertEqual(obj["pd"], 2**i - 2 ** (i - 1) if i > 0 else 0)
 
 
 if __name__ == "__main__":

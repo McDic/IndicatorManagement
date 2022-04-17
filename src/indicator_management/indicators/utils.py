@@ -17,12 +17,12 @@ def simple_filter(
     """
     Simple filter operation.
     Generates `v if filter_func(v) else false_value`.
-    If `filter_func` is None, filter true values.
     """
     return OperationIndicator(
         indicator,
         operation=(lambda x: x if filter_func(x) else false_value),
         default_value=false_value,
+        **kwargs
     )
 
 
@@ -36,4 +36,8 @@ class PrevDifference(AbstractHistoryTrackingIndicator[Numeric]):
 
     def update_single(self) -> None:
         pre_requisite = self.pre_requisites[0]
-        self.set_value(pre_requisite(0) - pre_requisite(1))  # type: ignore
+        val0, val1 = pre_requisite(0), pre_requisite(1)
+        if val0 is not None and val1 is not None:
+            self.set_value(val0 - val1)
+        else:
+            self.set_value(self._default_value)

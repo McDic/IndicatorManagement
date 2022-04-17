@@ -23,10 +23,11 @@ from .base import (
     xor_operator,
 )
 from .comparisons import maximum, minimum
-from .financial import ExponentialMovingAverage, bollinger_band
+from .financial import ExponentialMovingAverage, bollinger_band, macd, rsi
 from .mathematical import cos, log, sin, tan
 from .statistical import (
     SimpleHistoricalStats,
     SimpleMovingAverage,
     SimpleMovingVariance,
 )
+from .utils import PrevDifference, simple_filter

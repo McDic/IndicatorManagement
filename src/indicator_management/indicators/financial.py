@@ -1,12 +1,11 @@
 from math import inf
-from typing import cast
 
 from .._types import Numeric
 from .base import (
     AbstractIndicator,
     OperationIndicator,
-    division,
     multiplication,
+    power,
     subtraction,
     summation,
 )
@@ -18,14 +17,24 @@ def bollinger_band(
     base_indicator: AbstractIndicator[Numeric],
     length: int,
     stdev_multiplier: float = 2.0,
+    **kwargs
 ) -> tuple[AbstractIndicator[Numeric], ...]:
     """
     Return upper bound, middle, and lower bound of Bollinger Band.
     """
     assert stdev_multiplier > 0
-    moving_average = SimpleMovingAverage(base_indicator, length)
-    bandwidth = SimpleMovingVariance(base_indicator, length) ** 0.5 * stdev_multiplier
-    return moving_average + bandwidth, moving_average, moving_average - bandwidth
+    moving_average = SimpleMovingAverage(base_indicator, length, **kwargs)
+    bandwidth = multiplication(
+        power(SimpleMovingVariance(base_indicator, length, **kwargs), 0.5, **kwargs),
+        stdev_multiplier,
+        start=1,
+        **kwargs,
+    )
+    return (  # type: ignore
+        summation(moving_average, bandwidth, start=0, **kwargs),
+        moving_average,
+        subtraction(moving_average, bandwidth, **kwargs),
+    )
 
 
 class ExponentialMovingAverage(AbstractIndicator[Numeric]):
@@ -64,7 +73,7 @@ def macd(
     return subtraction(
         SimpleMovingAverage(indicator, short_period),
         SimpleMovingAverage(indicator, long_period),
-        **kwargs
+        **kwargs,
     )
 
 
@@ -80,25 +89,9 @@ def rsi(
     loss_filter = simple_filter(prev_difference, 0, (lambda pnl: pnl < 0), **kwargs)
     gain_ema = ExponentialMovingAverage(gain_filter, 1.0 / period, **kwargs)
     loss_ema = ExponentialMovingAverage(loss_filter, 1.0 / period, **kwargs)
-    return cast(
-        OperationIndicator[Numeric],
-        multiplication(
-            100,
-            subtraction(
-                1,
-                division(
-                    1,
-                    summation(
-                        1,
-                        division(gain_ema, loss_ema, default_value=inf, **kwargs),
-                        start=0,
-                        **kwargs
-                    ),
-                    **kwargs
-                ),
-                **kwargs
-            ),
-            start=1,
-            **kwargs
-        ),
+    return OperationIndicator(
+        gain_ema,
+        loss_ema,
+        operation=(lambda x, y: 100 * (1 - 1 / (1 - (x / y if y else -inf)))),
+        **kwargs,
     )
