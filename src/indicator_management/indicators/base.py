@@ -20,6 +20,7 @@ from typing import (
 
 from .._types import BoundMethod, ComparisonFunc, Numeric, T
 from ..errors import IndicatorManagementError
+from ..settings import get_default_safe_none
 from ..utils import (
     chained_keyword_and,
     chained_keyword_or,
@@ -334,11 +335,13 @@ class OperationIndicator(AbstractIndicator[T]):
         self,
         *pre_requisites: AbstractIndicator,
         operation: Callable[..., Optional[T]],
-        safe_none: bool = True,
+        safe_none: Optional[bool] = None,
         **kwargs,
     ) -> None:
         super().__init__(*pre_requisites, **kwargs)
         self._operation = operation
+        if safe_none is None:
+            safe_none = get_default_safe_none()
         if safe_none:
             diniprs = default_if_none_in_pre_requisites
             self.update_single = diniprs(self.update_single)  # type: ignore
