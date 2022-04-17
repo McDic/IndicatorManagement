@@ -22,7 +22,7 @@ class DataAnimator:
     def __init__(self, window_length: Optional[int] = 200) -> None:
         # Matplotlib settings
         self._figure = plt.figure(figsize=(12, 9))
-        plt.get_current_fig_manager().set_window_title(
+        self._figure.canvas.manager.set_window_title(
             "IndicatorManagement made by McDic"
         )
         self._window_length = window_length
