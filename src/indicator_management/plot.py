@@ -1,3 +1,4 @@
+import warnings
 from collections import deque
 from datetime import datetime
 from typing import Any, Optional
@@ -5,6 +6,7 @@ from typing import Any, Optional
 import matplotlib.animation as pltanim
 import matplotlib.pyplot as plt
 
+from .errors import IndicatorManagementError
 from .indicators import AbstractIndicator, RawSeriesIndicator
 from .orchestration import generate_sync
 from .utils import range_forever
@@ -20,7 +22,9 @@ class DataAnimator:
     def __init__(self, window_length: Optional[int] = 200) -> None:
         # Matplotlib settings
         self._figure = plt.figure(figsize=(12, 9))
-        self._figure.canvas.set_window_title("IndicatorManagement made by McDic")
+        plt.get_current_fig_manager().set_window_title(
+            "IndicatorManagement made by McDic"
+        )
         self._window_length = window_length
         self._func_animation: Optional[pltanim.FuncAnimation] = None
 
@@ -49,6 +53,8 @@ class DataAnimator:
                     "Name [%s] already exists for given indicator %s"
                     % (name, indicator)
                 )
+        elif name in self._indicators_by_name:
+            raise ValueError("Name [%s] already reserved")
         else:
             self._names_by_indicator[indicator] = name
             self._indicators_by_name[name] = indicator
@@ -64,6 +70,9 @@ class DataAnimator:
         """
         if x_axis_indicator is None:
             x_axis_indicator = RawSeriesIndicator(raw_values=range_forever())
+
+        if self._indicator_x_axis:
+            warnings.warn(UserWarning("X axis indicator already exists, overriding.."))
 
         if name is None:
             name = self._names_by_indicator.get(x_axis_indicator)
@@ -92,7 +101,7 @@ class DataAnimator:
         Prepare `Axes`s and `Line2D`s before showing animation.
         """
         if self._axes_nonce == 0:
-            raise ValueError(
+            raise IndicatorManagementError(
                 "`_axes_nonce` is zero. "
                 "Perhaps you called `update` without adding y-axes?"
             )

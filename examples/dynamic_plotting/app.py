@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Generator, Union
 
+from indicator_management import DataAnimator
 from indicator_management.indicators import (
     AbstractIndicator,
     ExponentialMovingAverage,
@@ -14,7 +15,6 @@ from indicator_management.indicators import (
     SimpleMovingAverage,
     bollinger_band,
 )
-from indicator_management.plot import DataAnimator
 
 
 def generate_timestamp_and_price(
