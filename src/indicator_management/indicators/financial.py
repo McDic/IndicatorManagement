@@ -72,8 +72,8 @@ def macd(
     `MACD(short, long) = SMA(short) - SMA(long)`.
     """
     return subtraction(
-        SimpleMovingAverage(indicator, short_period),
-        SimpleMovingAverage(indicator, long_period),
+        SimpleMovingAverage(indicator, short_period, **kwargs),
+        SimpleMovingAverage(indicator, long_period, **kwargs),
         **kwargs,
     )
 
