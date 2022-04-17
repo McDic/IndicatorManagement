@@ -46,7 +46,7 @@ def main():
         indicator_close_price, 20
     )
 
-    data_animator = DataAnimator(window_length=200)
+    data_animator = DataAnimator(window_length=100)
     data_animator.set_common_xaxis(indicator_timestamp, "timestamp")
     data_animator.add_yaxes(
         close=indicator_close_price, sma20=indicator_sma20, sma60=indicator_sma60
