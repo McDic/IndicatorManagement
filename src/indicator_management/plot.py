@@ -166,37 +166,32 @@ class DataAnimator:
     def _synchronized_bridge(
         generator: AsyncGenerator[dict[str, Any], None]
     ) -> Generator[Optional[dict[str, Any]], None, None]:
-        if isinstance(generator, Generator):
-            return generator
-
-        elif isinstance(generator, AsyncGenerator):
-
-            loop = asyncio.new_event_loop()
-            q: Queue[dict[str, Any]] = Queue()
-
-            async def put(ag: AsyncGenerator[dict[str, Any], None]):
-                async for value in ag:
-                    q.put(value)
-
-            def run_loop(ag: AsyncGenerator[dict[str, Any], None]):
-                asyncio.set_event_loop(loop)
-                loop.run_until_complete(put(ag))
-
-            thread = threading.Thread(target=run_loop, args=(generator,))
-            thread.start()
-
-            def bridged_generator() -> Generator[Optional[dict[str, Any]], None, None]:
-                yield q.get()
-                while loop.is_running() or not q.empty():
-                    try:
-                        yield q.get_nowait()
-                    except EmptyQueueError:
-                        yield None
-
-            return bridged_generator()
-
-        else:
+        if not isinstance(generator, AsyncGenerator):
             raise TypeError
+
+        loop = asyncio.new_event_loop()
+        q: Queue[dict[str, Any]] = Queue()
+
+        async def put(ag: AsyncGenerator[dict[str, Any], None]):
+            async for value in ag:
+                q.put(value)
+
+        def run_loop(ag: AsyncGenerator[dict[str, Any], None]):
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(put(ag))
+
+        thread = threading.Thread(target=run_loop, args=(generator,))
+        thread.start()
+
+        def bridged_generator() -> Generator[Optional[dict[str, Any]], None, None]:
+            yield q.get()
+            while loop.is_running() or not q.empty():
+                try:
+                    yield q.get_nowait()
+                except EmptyQueueError:
+                    yield None
+
+        return bridged_generator()
 
     def show(
         self,
