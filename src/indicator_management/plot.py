@@ -1,14 +1,18 @@
+import asyncio
+import threading
 import warnings
 from collections import deque
 from datetime import datetime
-from typing import Any, Optional
+from queue import Empty as EmptyQueueError
+from queue import Queue
+from typing import Any, AsyncGenerator, Generator, Optional
 
 import matplotlib.animation as pltanim
 import matplotlib.pyplot as plt
 
 from .errors import IndicatorManagementError
 from .indicators import AbstractIndicator, RawSeriesIndicator
-from .orchestration import generate_sync
+from .orchestration import generate_async, generate_sync
 from .utils import range_forever
 
 
@@ -96,7 +100,7 @@ class DataAnimator:
             self._register_indicator(indicator, name)
             self._names_by_axes_id[-1].add(name)
 
-    def _prepare_axes_and_lines(self, blit: bool):
+    def _prepare_axes_and_lines(self, blit: bool, show_grid: bool):
         """
         Prepare `Axes`s and `Line2D`s before showing animation.
         """
@@ -124,14 +128,19 @@ class DataAnimator:
             if blit:
                 ax.xaxis.set_animated(True)
                 ax.yaxis.set_animated(True)
+            if show_grid:
+                ax.grid(True, "major", "y")
 
         self._figure.tight_layout()
         self._figure.subplots_adjust(hspace=0)
 
-    def update(self, value: dict[str, Any]):
+    def update(self, value: Optional[dict[str, Any]]) -> list[plt.Artist]:
         """
         Update data and lines.
         """
+        if value is None:
+            return []
+
         for name in self._indicators_by_name:
             self._linedata[name].append(value[name])
 
@@ -153,21 +162,64 @@ class DataAnimator:
 
         return list(line for lines in self._lines.values() for line in lines)
 
+    @staticmethod
+    def _synchronized_bridge(
+        generator: AsyncGenerator[dict[str, Any], None]
+    ) -> Generator[Optional[dict[str, Any]], None, None]:
+        if isinstance(generator, Generator):
+            return generator
+
+        elif isinstance(generator, AsyncGenerator):
+
+            loop = asyncio.new_event_loop()
+            q: Queue[dict[str, Any]] = Queue()
+
+            async def put(ag: AsyncGenerator[dict[str, Any], None]):
+                async for value in ag:
+                    q.put(value)
+
+            def run_loop(ag: AsyncGenerator[dict[str, Any], None]):
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(put(ag))
+
+            thread = threading.Thread(target=run_loop, args=(generator,))
+            thread.start()
+
+            def bridged_generator() -> Generator[Optional[dict[str, Any]], None, None]:
+                yield q.get()
+                while loop.is_running() or not q.empty():
+                    try:
+                        yield q.get_nowait()
+                    except EmptyQueueError:
+                        yield None
+
+            return bridged_generator()
+
+        else:
+            raise TypeError
+
     def show(
         self,
         interval: int = 25,
         save_count: int = 200,
         save_path: Optional[str] = None,
+        *,
         blit: bool = False,
+        sync_generate: bool = False,
+        show_grid: bool = False,
     ) -> None:
         """
         Prepare everything and show. This method should be called at the last.
         """
-        self._prepare_axes_and_lines(blit=blit)
+        self._prepare_axes_and_lines(blit=blit, show_grid=show_grid)
         self._func_animation = pltanim.FuncAnimation(
             self._figure,
             self.update,
-            frames=generate_sync(**self._indicators_by_name),
+            frames=(
+                self._synchronized_bridge(generate_async(**self._indicators_by_name))
+                if not sync_generate
+                else generate_sync(**self._indicators_by_name)
+            ),
             interval=interval,
             blit=blit,
             repeat=False,

@@ -46,7 +46,7 @@ class PlottingTest(unittest.TestCase):
         animator.set_common_xaxis(indicator_raw, "x")
         animator.add_yaxes(double=indicator_double, triple=indicator_triple)
         animator.add_yaxes(square=indicator_square)
-        animator._prepare_axes_and_lines(False)
+        animator._prepare_axes_and_lines(False, True)
         animator.update({"x": 1, "double": 2, "triple": 3, "square": 1})
 
 
