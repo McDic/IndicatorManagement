@@ -1,4 +1,4 @@
-from typing import Any, Callable, overload
+from typing import Any, Callable, Generator, overload
 
 from ._types import Comparable, Numeric, T
 
@@ -109,3 +109,13 @@ def wrapped_chained_general_operation(
         return current
 
     return chained_general_operation
+
+
+def range_forever(start: int = 0, step: int = 1) -> Generator[int, None, None]:
+    """
+    Similar to range, but produces integers forever.
+    """
+    now = start
+    while True:
+        yield now
+        now += step
