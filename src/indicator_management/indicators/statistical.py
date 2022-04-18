@@ -1,3 +1,5 @@
+from typing import cast
+
 from sortedcontainers import SortedList
 
 from .._types import Numeric, T
@@ -19,11 +21,11 @@ class SimpleMovingAverage(AbstractHistoryTrackingIndicator[Numeric]):
             for i in range(self._tracking_lengths[0])
             if self.pre_requisites[0](i) is None
         )
-        self._sum = 0
+        self._sum: Numeric = cast(Numeric, 0)
 
     def remove_tail(self) -> None:
         value_removal = self.pre_requisites[0](self._tracking_lengths[0])
-        self._sum -= value_removal or 0  # type: ignore
+        self._sum -= value_removal or 0
         if value_removal is None:
             self._none_count -= 1
 
@@ -57,7 +59,7 @@ class SimpleMovingVariance(AbstractHistoryTrackingIndicator[Numeric]):
             if self.pre_requisites[0](i) is None
         )
         self._sum = 0
-        self._square_sum = 0
+        self._square_sum = cast(Numeric, 0)
 
     def remove_tail(self) -> None:
         value_removal = self.pre_requisites[0](self._tracking_lengths[0])

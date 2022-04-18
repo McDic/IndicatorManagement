@@ -1,4 +1,5 @@
 from math import inf
+from typing import cast
 
 from .._types import Numeric
 from .base import (
@@ -25,13 +26,20 @@ def bollinger_band(
     assert stdev_multiplier > 0
     moving_average = SimpleMovingAverage(base_indicator, length, **kwargs)
     bandwidth = multiplication(
-        power(SimpleMovingVariance(base_indicator, length, **kwargs), 0.5, **kwargs),
-        stdev_multiplier,
+        power(
+            SimpleMovingVariance(base_indicator, length, **kwargs),
+            cast(Numeric, 0.5),
+            **kwargs,
+        ),
+        cast(Numeric, stdev_multiplier),
         start=1,
         **kwargs,
     )
-    return (  # type: ignore
-        summation(moving_average, bandwidth, start=0, **kwargs),
+    return (
+        cast(
+            OperationIndicator[Numeric],
+            summation(moving_average, bandwidth, start=0, **kwargs),
+        ),
         moving_average,
         subtraction(moving_average, bandwidth, **kwargs),
     )
@@ -59,8 +67,7 @@ class ExponentialMovingAverage(AbstractIndicator[Numeric]):
             self.set_value(value)
         else:
             self.set_value(
-                prev_value * (1 - self._forward_weight)  # type: ignore
-                + value * self._forward_weight
+                prev_value * (1 - self._forward_weight) + value * self._forward_weight
             )
 
 
