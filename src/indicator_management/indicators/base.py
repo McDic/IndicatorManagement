@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 from functools import wraps
+from itertools import zip_longest
 from numbers import Number
 from typing import (
     Any,
@@ -225,6 +226,18 @@ class AbstractIndicator(Generic[T]):
 
     # =================================================================================
     # Update APIs
+
+    def lazily_update_pre_requisites(
+        self, *pre_requisites: Optional[AbstractIndicator]
+    ) -> None:
+        """
+        Lazily update pre-requisites. This method should be called very carefully,
+        because the update order might be changed or cyclic dependencies may occur.
+        """
+        self.pre_requisites = tuple(
+            new_prq or old_prq
+            for old_prq, new_prq in zip_longest(self.pre_requisites, pre_requisites)
+        )
 
     async def update_single_async(self) -> None:
         """

@@ -1,13 +1,26 @@
 import random
 import unittest
 
-from src.indicator_management import generate_async
-from src.indicator_management.indicators import AsyncRawSeriesIndicator
+from src.indicator_management import generate_async, generate_sync
+from src.indicator_management.errors import CannotResolveIndicatorGraph
+from src.indicator_management.indicators import (
+    AbstractIndicator,
+    AsyncRawSeriesIndicator,
+)
 
 
 async def random_forever():
     while True:
         yield random.random()
+
+
+class SyncOrchestrationTest(unittest.TestCase):
+    def test_cyclic_dependencies(self):
+        x1 = AbstractIndicator()
+        x2 = AbstractIndicator(x1)
+        x1.lazily_update_pre_requisites(x2)
+        with self.assertRaises(CannotResolveIndicatorGraph):
+            list(generate_sync(x1=x1, x2=x2))
 
 
 class AsyncOrchestrationTest(unittest.IsolatedAsyncioTestCase):
