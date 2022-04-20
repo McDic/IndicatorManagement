@@ -1,9 +1,11 @@
+from . import strategy
 from .aging import AgingIndicator
 from .base import (
     AbstractHistoryTrackingIndicator,
     AbstractIndicator,
     AsyncRawSeriesIndicator,
     ConstantIndicator,
+    OperationIndicator,
     RawSeriesIndicator,
     and_keyword,
     and_operator,
