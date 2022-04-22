@@ -23,3 +23,9 @@ htmlcov/
 
 # Personal Python practice purpose
 bruh.py
+
+# Private strategies
+examples/private/
+
+# Log files
+*.log*

@@ -3,6 +3,7 @@ from typing import Any, Generator, Iterable, Optional, Type, cast
 from ..._types import Numeric
 from ...errors import IndicatorManagementError
 from ...position import AbstractIsolatedPosition
+from ...utils import range_forever
 from ..base import AbstractIndicator, ConstantIndicator, RawSeriesIndicator
 from .exit_conditions import TrailingStop
 
@@ -33,14 +34,19 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
         *,
         position_type: Type[AbstractIsolatedPosition] = AbstractIsolatedPosition,
         indicator_deadline: Optional[AbstractIndicator] = None,
+        indicator_timeline: Optional[AbstractIndicator] = None,
         aexc_type: Type[AbstractIndicator] = TrailingStop,
         aexc_args: Iterable[AbstractIndicator] = (),
         aexc_kwargs: Optional[dict[str, Any]] = None,
         init_amount: Iterable[Numeric] = (),
-        slippage: float = 0.1 * 0.01,
+        slippage: float = 0.0,
         fee: float = 0.0,
         **kwargs,
     ) -> None:
+        self.timeline_indicator = indicator_timeline or RawSeriesIndicator(
+            raw_values=range_forever()
+        )
+
         if not entry_conditions:
             raise ValueError("Given indicators is empty")
         self._entry_conditions = entry_conditions
@@ -84,7 +90,12 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
         )
 
         super().__init__(
-            price_indicator, self._deadline, *entry_conditions, *self._aexcs, **kwargs
+            self.timeline_indicator,
+            price_indicator,
+            self._deadline,
+            *entry_conditions,
+            *self._aexcs,
+            **kwargs,
         )
 
         self._slippage: Numeric = cast(Numeric, slippage)
@@ -127,8 +138,13 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
         This method should be called inside of `run_atomic`.
         """
         print(
-            "Entering position at slot %d (current price %s, %s)"
-            % (index, current_price, "long" if is_long else "short")
+            "Entering position at slot %d (time %s, current price %s, %s)"
+            % (
+                index,
+                self.timeline_indicator(0),
+                current_price,
+                "long" if is_long else "short",
+            )
         )
         position = self._isolated_positions[index]
         if position.amount:
@@ -159,7 +175,10 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
         Close position at given `index`, with current price.
         This method should be called inside of `run_atomic`.
         """
-        print("Closing position at slot %d (current price %s)" % (index, current_price))
+        print(
+            "Closing position at slot %d (time %s, current price %s)"
+            % (index, self.timeline_indicator(0), current_price)
+        )
         position = self._isolated_positions[index]
         if not position.amount:
             raise IndicatorManagementError(
