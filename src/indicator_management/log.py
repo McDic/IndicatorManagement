@@ -44,4 +44,4 @@ def get_child_logger(name: Optional[str] = None) -> logging.Logger:
     if name is None or name == "__main__":
         return main_logger
     else:
-        return main_logger.getChild(name)
+        return main_logger.getChild(name.replace("indicator_management.", ""))

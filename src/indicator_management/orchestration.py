@@ -1,8 +1,12 @@
 import asyncio
 from typing import Any, AsyncGenerator, Generator
 
+from .constants import ORCHESTRATION_DEBUG_PER_ITERATION
 from .graph import toposort
 from .indicators import AbstractIndicator
+from .log import get_child_logger
+
+logger = get_child_logger(__name__)
 
 
 def generate_sync(
@@ -12,8 +16,13 @@ def generate_sync(
     Synchronously generate all indicators by flow.
     """
     extended_toposorted: list[list[AbstractIndicator]] = toposort(*indicators.values())
+    iteration: int = 0
     try:
         while True:
+            iteration += 1
+            if iteration % ORCHESTRATION_DEBUG_PER_ITERATION == 0:
+                logger.debug("%d-th iteration of generate_sync", iteration)
+
             for batched_indicators in extended_toposorted:
                 for indicator in batched_indicators:
                     indicator.update_single()
@@ -45,8 +54,13 @@ async def generate_async(
         )
         extended_classified.append((indicators_sync, indicators_async))
 
+    iteration: int = 0
     try:
         while True:
+            iteration += 1
+            if iteration % ORCHESTRATION_DEBUG_PER_ITERATION == 0:
+                logger.debug("%d-th iteration of generate_async", iteration)
+
             for sync_indicators, async_indicators in extended_classified:
 
                 for indicator in sync_indicators:
