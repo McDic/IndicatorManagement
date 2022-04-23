@@ -5,6 +5,7 @@ from .._types import Numeric
 from .base import (
     AbstractIndicator,
     OperationIndicator,
+    division,
     multiplication,
     power,
     subtraction,
@@ -43,6 +44,24 @@ def bollinger_band(
         ),
         moving_average,
         subtraction(moving_average, bandwidth, **kwargs),
+    )
+
+
+def bollinger_power(
+    base_indicator: AbstractIndicator[Numeric],
+    length: int,
+    power_parameter: float = 0.5,
+    **kwargs
+) -> AbstractIndicator[Numeric]:
+    """
+    Return strength of bollinger bandwidth of given indicator.
+    """
+    moving_average = SimpleMovingAverage(base_indicator, length, **kwargs)
+    moving_variance = SimpleMovingVariance(base_indicator, length, **kwargs)
+    return division(
+        subtraction(base_indicator, moving_average, **kwargs),
+        power(moving_variance, cast(Numeric, power_parameter), **kwargs),
+        **kwargs,
     )
 
 
