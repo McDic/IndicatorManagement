@@ -104,6 +104,10 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
             for i in range(len(self._isolated_positions))
         )
 
+        self.positions_opened: list[Numeric] = [
+            cast(Numeric, 0) for _ in self._isolated_positions
+        ]
+
         super().__init__(
             self.timeline_indicator,
             price_indicator,
@@ -184,11 +188,15 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
         position.amount = self._balances[index] / current_price * (1 if is_long else -1)
         this_fee = self.calculate_fee(price=current_price, amount=position.amount)
         self._balances[index] -= this_fee
+        self._realized_pnl -= this_fee
+        self._cumulative_fee += this_fee
+
+        self.positions_opened[index] += position.amount
 
         logger.info(
             "Entering position: Nonce #%d, Slot %d / Time %s"
-            " / Current price %s / %s / Amount %s / Paid fee %f",
-            self._trade_nonce,
+            " / Current price %g / %s / Amount %g / Paid fee %g",
+            self._trade_nonces[index],
             index,
             self.timeline_indicator(0),
             current_price,
@@ -227,10 +235,12 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
         self._unrealized_pnls[index] = cast(Numeric, 0)
         self._cumulative_fee += this_fee
 
+        self.positions_opened[index] -= position.amount
+
         logger.info(
             "Closing position: Nonce #%d, Slot %d / Time %s"
-            " / Current price %s / PnL %f / Paid fee %f / Total UPnL %f",
-            self._trade_nonce,
+            " / Current price %g / PnL %g / Paid fee %g / Total UPnL %g",
+            self._trade_nonces[index],
             index,
             self.timeline_indicator(0),
             current_price,
@@ -249,6 +259,8 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
         current_price = self._priceline(0)
         if current_price is None:
             raise ValueError
+
+        self.positions_opened = [cast(Numeric, 0) for _ in self._isolated_positions]
 
         for i, indicator in enumerate(self._entry_conditions):
             position = self._isolated_positions[i]
@@ -292,5 +304,6 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
             "balance": sum(self._balances),
             "unrealized_pnl": self.calculate_total_upnl(),
             "cumulative_fee": self._cumulative_fee,
+            "position_changes": sum(self.positions_opened),
         }
         self.set_value(result)
