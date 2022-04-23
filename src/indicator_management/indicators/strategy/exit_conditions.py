@@ -16,6 +16,7 @@ class TrailingStop(AbstractIndicator[bool]):
         self,
         *pre_requisites: AbstractIndicator,
         bad_ratio: Numeric = cast(Numeric, 0.98),
+        bad_ratio_weight: Numeric = cast(Numeric, 0.75),
         **kwargs
     ) -> None:
         super().__init__(*pre_requisites, **kwargs)
@@ -24,6 +25,8 @@ class TrailingStop(AbstractIndicator[bool]):
         self._previous_entry_price: Optional[Numeric] = None
         self._previous_is_long: Optional[bool] = None
         self.bad_ratio: Numeric = bad_ratio
+        self.bad_ratio_weight: Numeric = bad_ratio_weight
+        self.bad_price: Numeric = cast(Numeric, 0)  # debug purpose
 
     def reset_values(self):
         """
@@ -60,13 +63,15 @@ class TrailingStop(AbstractIndicator[bool]):
         self.historical_min_price = min(self.historical_min_price, current_price)
         if is_long:
             ratio = self.historical_max_price / entry_price
-            self.set_value(
-                current_price
-                <= min(self.bad_ratio * ratio, (ratio + 1) / 2) * entry_price
+            second_argument = ratio * self.bad_ratio_weight + (
+                1 - self.bad_ratio_weight
             )
+            self.bad_price = min(self.bad_ratio * ratio, second_argument) * entry_price
+            self.set_value(current_price <= self.bad_price)
         else:
             ratio = self.historical_min_price / entry_price
-            self.set_value(
-                current_price
-                >= max(ratio / self.bad_ratio, (ratio + 1) / 2) * entry_price
+            second_argument = ratio * self.bad_ratio_weight + (
+                1 - self.bad_ratio_weight
             )
+            self.bad_price = max(ratio / self.bad_ratio, second_argument) * entry_price
+            self.set_value(current_price >= self.bad_price)
