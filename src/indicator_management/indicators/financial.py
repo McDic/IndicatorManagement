@@ -18,6 +18,7 @@ def bollinger_band(
     base_indicator: AbstractIndicator[Numeric],
     length: int,
     stdev_multiplier: float = 2.0,
+    power_parameter: float = 0.5,
     **kwargs
 ) -> tuple[AbstractIndicator[Numeric], ...]:
     """
@@ -28,7 +29,7 @@ def bollinger_band(
     bandwidth = multiplication(
         power(
             SimpleMovingVariance(base_indicator, length, **kwargs),
-            cast(Numeric, 0.5),
+            cast(Numeric, power_parameter),
             **kwargs,
         ),
         cast(Numeric, stdev_multiplier),
