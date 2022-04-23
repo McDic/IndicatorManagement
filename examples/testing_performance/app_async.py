@@ -5,11 +5,7 @@ import pstats
 from random import random
 
 from indicator_management import generate_async
-from indicator_management.indicators import (
-    AsyncRawSeriesIndicator,
-    multiplication,
-    summation,
-)
+from indicator_management.indicators import AsyncRawSeriesIndicator
 from indicator_management.log import setup_base_logger_setting
 from indicator_management.settings import set_default_safe_none
 
