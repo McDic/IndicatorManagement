@@ -2,10 +2,13 @@ from typing import Any, Generator, Iterable, Optional, Type, cast
 
 from ..._types import Numeric
 from ...errors import IndicatorManagementError
+from ...log import get_child_logger
 from ...position import AbstractIsolatedPosition
 from ...utils import range_forever
 from ..base import AbstractIndicator, ConstantIndicator, RawSeriesIndicator
 from .exit_conditions import TrailingStop
+
+logger = get_child_logger(__name__)
 
 
 class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
@@ -101,6 +104,9 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
         self._slippage: Numeric = cast(Numeric, slippage)
         self._fee: Numeric = cast(Numeric, fee)
 
+        self._trade_nonce: int = 0
+        self._trade_nonces: list[int] = [-1 for _ in self._aexcs]
+
     def _yield_entry_price(
         self, index: int
     ) -> Generator[Optional[Numeric], None, None]:
@@ -137,15 +143,9 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
         Enter position at given `index`, with current price.
         This method should be called inside of `run_atomic`.
         """
-        print(
-            "Entering position at slot %d (time %s, current price %s, %s)"
-            % (
-                index,
-                self.timeline_indicator(0),
-                current_price,
-                "long" if is_long else "short",
-            )
-        )
+        self._trade_nonces[index] = self._trade_nonce
+        self._trade_nonce += 1
+
         position = self._isolated_positions[index]
         if position.amount:
             raise IndicatorManagementError(
@@ -163,7 +163,18 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
         position.amount = self._balances[index] / current_price * (1 if is_long else -1)
         this_fee = self.calculate_fee(price=current_price, amount=position.amount)
         self._balances[index] -= this_fee
-        print("\tPaid %f fee" % (this_fee,))
+
+        logger.info(
+            "Entering position: Nonce #%d, Slot %d / Time %s"
+            " / Current price %s / %s / Amount %s / Paid fee %f",
+            self._trade_nonce,
+            index,
+            self.timeline_indicator(0),
+            current_price,
+            "long" if is_long else "short",
+            position.amount,
+            this_fee,
+        )
 
     def close_position(
         self,
@@ -175,10 +186,6 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
         Close position at given `index`, with current price.
         This method should be called inside of `run_atomic`.
         """
-        print(
-            "Closing position at slot %d (time %s, current price %s)"
-            % (index, self.timeline_indicator(0), current_price)
-        )
         position = self._isolated_positions[index]
         if not position.amount:
             raise IndicatorManagementError(
@@ -196,9 +203,22 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
         this_fee = self.calculate_fee(price=current_price, amount=position.amount)
         self._realized_pnl += this_pnl
         self._balances[index] += this_pnl - this_fee
-        print("\tEarned %f, paid %f fee" % (this_pnl, this_fee))
         self._unrealized_pnls[index] = cast(Numeric, 0)
+
+        logger.info(
+            "Closing position: Nonce #%d, Slot %d / Time %s"
+            " / Current price %s / PnL %f / Paid fee %f / Total UPnL %f",
+            self._trade_nonce,
+            index,
+            self.timeline_indicator(0),
+            current_price,
+            this_pnl,
+            this_fee,
+            self._realized_pnl + sum(self._unrealized_pnls),
+        )
+
         position.amount = cast(Numeric, 0)
+        self._trade_nonces[index] = -1
 
     def run_atomic(self):
         """
@@ -213,19 +233,31 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
             signal = indicator(0)
             if signal is None:  # Close all
                 if position.amount:
-                    print("Closing because signal is none")
+                    logger.info(
+                        "Closing position %d(nonce #%d) because signal is none",
+                        i,
+                        self._trade_nonces[i],
+                    )
                     self.close_position(i, current_price=current_price)
             elif self._aexcs[i](0):  # Additional exit condition activated
                 if position.amount:
-                    print("Closing because aexc is activated")
+                    logger.info(
+                        "Closing position %d(nonce #%d) because aexc is activated",
+                        i,
+                        self._trade_nonces[i],
+                    )
                     self.close_position(i, current_price=current_price)
             elif signal == 0:  # Hold
                 pass
             elif not position.amount:  # Can enter position
-                print("Entering because signal is activated")
+                logger.info("Entering position %d because signal is activated", i)
                 self.enter_position(i, signal > 0, current_price=current_price)
             elif position.amount * signal < 0:  # Inverse signal detected
-                print("Closing because signal is opposite")
+                logger.info(
+                    "Closing position %d(nonce #%d) because signal is opposite",
+                    i,
+                    self._trade_nonces[i],
+                )
                 self.close_position(i, current_price=current_price)
 
             self._unrealized_pnls[i] = position.pnl(current_price)

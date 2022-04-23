@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Generator, Union
 
-from indicator_management import DataAnimator
+from indicator_management import DataAnimator, setup_base_logger_setting
 from indicator_management.indicators import (
     AbstractIndicator,
     OperationIndicator,
@@ -31,6 +31,8 @@ def generate_timestamp_and_price(
 
 
 def main():
+    setup_base_logger_setting("log/app_strategy.log")
+
     indicator_raw_value: AbstractIndicator = RawSeriesIndicator(
         raw_values=generate_timestamp_and_price(
             Path(__file__).parent / "BTCUSDT-1m-2021-06-27.csv"
