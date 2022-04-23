@@ -90,6 +90,7 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
         self._unrealized_pnls: list[Numeric] = [
             cast(Numeric, 0.0) for _ in self._balances
         ]
+        self._cumulative_fee: Numeric = cast(Numeric, 0.0)
 
         aexc_kwargs = aexc_kwargs or {}
         self._aexcs: tuple[AbstractIndicator, ...] = tuple(
@@ -140,7 +141,16 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
                 yield (position.amount > 0)
 
     def calculate_fee(self, price: Numeric, amount: Numeric) -> Numeric:
+        """
+        Calculate and return fee.
+        """
         return self._fee * price * abs(amount)
+
+    def calculate_total_upnl(self) -> Numeric:
+        """
+        Calculate and return total unrealized PnL.
+        """
+        return self._realized_pnl + sum(self._unrealized_pnls)
 
     def enter_position(
         self,
@@ -212,9 +222,10 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
 
         this_pnl = position.pnl(current_price)
         this_fee = self.calculate_fee(price=current_price, amount=position.amount)
-        self._realized_pnl += this_pnl
+        self._realized_pnl += this_pnl - this_fee
         self._balances[index] += this_pnl - this_fee
         self._unrealized_pnls[index] = cast(Numeric, 0)
+        self._cumulative_fee += this_fee
 
         logger.info(
             "Closing position: Nonce #%d, Slot %d / Time %s"
@@ -225,7 +236,7 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
             current_price,
             this_pnl,
             this_fee,
-            self._realized_pnl + sum(self._unrealized_pnls),
+            self.calculate_total_upnl(),
         )
 
         position.amount = cast(Numeric, 0)
@@ -279,6 +290,7 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
         result: dict = {
             "pnl": self._realized_pnl,
             "balance": sum(self._balances),
-            "unrealized_pnl": self._realized_pnl + sum(self._unrealized_pnls),
+            "unrealized_pnl": self.calculate_total_upnl(),
+            "cumulative_fee": self._cumulative_fee,
         }
         self.set_value(result)
