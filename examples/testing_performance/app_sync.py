@@ -3,7 +3,7 @@ import os
 import pstats
 from random import random
 
-from indicator_management import generate_sync
+from indicator_management import generate_sync, setup_base_logger_setting
 from indicator_management.indicators import (
     RawSeriesIndicator,
     multiplication,
@@ -11,7 +11,7 @@ from indicator_management.indicators import (
 )
 
 
-def main(count: int = 10**5, safe_none: bool = True):
+def main(count: int = 2 * 10**5, safe_none: bool = True):
     def generate_forever():
         while True:
             yield random()
@@ -30,6 +30,7 @@ def main(count: int = 10**5, safe_none: bool = True):
 
 
 if __name__ == "__main__":
+    setup_base_logger_setting("log/performance_test.log")
     cProfile.run("main(safe_none=True)", "safe_none_yes.perf")
     cProfile.run("main(safe_none=False)", "safe_none_no.perf")
     p_yes = pstats.Stats("safe_none_yes.perf")

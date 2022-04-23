@@ -1,9 +1,11 @@
+from . import strategy
 from .aging import AgingIndicator
 from .base import (
     AbstractHistoryTrackingIndicator,
     AbstractIndicator,
     AsyncRawSeriesIndicator,
     ConstantIndicator,
+    OperationIndicator,
     RawSeriesIndicator,
     and_keyword,
     and_operator,
@@ -23,7 +25,14 @@ from .base import (
     xor_operator,
 )
 from .comparisons import maximum, minimum
-from .financial import ExponentialMovingAverage, bollinger_band, macd, ppo, rsi
+from .financial import (
+    ExponentialMovingAverage,
+    bollinger_band,
+    bollinger_power,
+    macd,
+    ppo,
+    rsi,
+)
 from .mathematical import cos, log, sin, tan
 from .statistical import (
     SimpleHistoricalStats,
