@@ -1,6 +1,7 @@
-from typing import Any, Generator, Iterable, Optional, Type, cast
+from typing import Any, Generator, Iterable, Optional, Type, Union, cast
 
 from ..._types import Numeric
+from ...constants import INIT_BALANCE
 from ...errors import IndicatorManagementError
 from ...log import get_child_logger
 from ...position import AbstractIsolatedPosition
@@ -33,7 +34,7 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
     def __init__(
         self,
         price_indicator: AbstractIndicator[Numeric],
-        entry_conditions: tuple[AbstractIndicator, ...],
+        entry_conditions: Union[tuple[AbstractIndicator, ...], AbstractIndicator],
         *,
         position_type: Type[AbstractIsolatedPosition] = AbstractIsolatedPosition,
         indicator_deadline: Optional[AbstractIndicator] = None,
@@ -52,6 +53,13 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
 
         if not entry_conditions:
             raise ValueError("Given indicators is empty")
+        elif isinstance(entry_conditions, AbstractIndicator):
+            entry_conditions = (entry_conditions,)
+        elif not isinstance(entry_conditions, tuple):
+            raise TypeError(
+                "Invalid type %s for entry_conditions is given"
+                % (type(entry_conditions),)
+            )
         self._entry_conditions = entry_conditions
         self._deadline = (
             ConstantIndicator(False)
@@ -68,7 +76,10 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
         self._balances: list[Numeric] = (
             list(init_amount)
             if init_amount
-            else [cast(Numeric, 1.0) for _ in self._entry_conditions]
+            else [
+                cast(Numeric, INIT_BALANCE / len(self._entry_conditions))
+                for _ in self._entry_conditions
+            ]
         )
         if len(self._balances) != len(self._entry_conditions):
             raise ValueError(
@@ -259,6 +270,7 @@ class AbstractStrategy(AbstractIndicator[dict[str, Any]]):
                     self._trade_nonces[i],
                 )
                 self.close_position(i, current_price=current_price)
+                self.enter_position(i, signal > 0, current_price=current_price)
 
             self._unrealized_pnls[i] = position.pnl(current_price)
 
