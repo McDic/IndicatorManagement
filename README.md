@@ -53,6 +53,12 @@ The code above will print following;
 
 As you can see, you can mix any operations or indicators to generate your own indicator.
 
+## Strategy is also kind of indicator
+
+Strategy is also kind of indicator, as it stores states.
+It's more complicated than usual indicators, but you can still customize it well!
+Please have a look at examples.
+
 ## Plot your own indicators with convenience
 
 [This code](https://github.com/McDic/IndicatorManagement/blob/master/examples/dynamic_plotting/app.py) will plot following graph;
