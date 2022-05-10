@@ -21,7 +21,9 @@ def bollinger_band(
     stdev_multiplier: float = 2.0,
     power_parameter: float = 0.5,
     **kwargs
-) -> tuple[AbstractIndicator[Numeric], ...]:
+) -> tuple[
+    OperationIndicator[Numeric], SimpleMovingAverage, OperationIndicator[Numeric]
+]:
     """
     Return upper bound, middle, and lower bound of Bollinger Band.
     """
